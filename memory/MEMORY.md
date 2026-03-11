@@ -6,6 +6,12 @@
 - **Versioning**: Every plan must start with a version bump per notes/README.md "Versioning during development". Get user approval on single-step vs multi-step approach before starting.
 - **Pre-commit checklist**: Before committing, run: tests, clippy, fmt, install the app, then retest.
 
+## Lessons Learned
+
+- **Avoid duplicate commits in .claude repo**: Committing the bot session repo multiple times in one session can create duplicate-titled commits with other session commits interleaved, making squashing non-trivial. Prefer a single commit to .claude at session end.
+- **ochid trailers need updating after squash**: When squashing changes the target commit in .claude, the ochid reference in the app repo must be updated to point at the correct changeID.
+- **Don't modify .claude repo programmatically mid-session**: Session data updates continuously, so bot-initiated changes to .claude can create circular modifications.
+
 ## Key Files
 
 - notes/README.md — contains versioning workflow, todo format rules
