@@ -12,7 +12,8 @@
       "Bash(jj log:*)",
       "Bash(cargo fmt:*)",
       "Bash(cargo clippy:*)",
-      "Bash(cargo test:*)"
+      "Bash(cargo test:*)",
+      "Bash(nohup bash -c *)"
     ]
   }
 }
