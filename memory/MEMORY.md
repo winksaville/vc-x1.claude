@@ -10,6 +10,9 @@
 
 - [Always include ochid trailer in commits](feedback_ochid_trailer.md)
 - [Always commit .claude repo before finalize](feedback_claude_commit_before_finalize.md)
+- [Skip .claude push before finalize — finalize handles it](feedback_no_claude_push.md)
+- [Finalize must be absolute last action — only status line after](feedback_finalize_last.md)
+- [Use --ignore-immutable for late squash after push](feedback_squash_ignore_immutable.md)
 
 ## Lessons Learned
 
