@@ -9,6 +9,7 @@
 ## Feedback
 
 - [Always include ochid trailer in commits](feedback_ochid_trailer.md)
+- [Always commit .claude repo before finalize](feedback_claude_commit_before_finalize.md)
 
 ## Lessons Learned
 
