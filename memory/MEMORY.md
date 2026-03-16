@@ -14,6 +14,7 @@
 - [Finalize must be absolute last action — only status line after](feedback_finalize_last.md)
 - [Use --ignore-immutable for late squash after push](feedback_squash_ignore_immutable.md)
 - [Use vc-x1 chid to retrieve changeIDs, not jj log](feedback_use_chid.md)
+- [Recognize when stuck — 5+ min thinking on simple task means stuck](feedback_stuck_detection.md)
 
 ## Lessons Learned
 
