@@ -13,6 +13,7 @@
 - [Skip .claude push before finalize — finalize handles it](feedback_no_claude_push.md)
 - [Finalize must be absolute last action — only status line after](feedback_finalize_last.md)
 - [Use --ignore-immutable for late squash after push](feedback_squash_ignore_immutable.md)
+- [Use vc-x1 chid to retrieve changeIDs, not jj log](feedback_use_chid.md)
 
 ## Lessons Learned
 

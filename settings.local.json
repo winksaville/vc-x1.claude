@@ -16,7 +16,8 @@
       "Bash(nohup bash -c *)",
       "Bash(vc-x1 finalize:*)",
       "Bash(mktemp -d /tmp/vc-x1-test-bg-XXXXXX)",
-      "Bash(cargo install:*)"
+      "Bash(cargo install:*)",
+      "Bash(vc-x1 chid:*)"
     ]
   }
 }
