@@ -17,7 +17,8 @@
       "Bash(vc-x1 finalize:*)",
       "Bash(mktemp -d /tmp/vc-x1-test-bg-XXXXXX)",
       "Bash(cargo install:*)",
-      "Bash(vc-x1 chid:*)"
+      "Bash(vc-x1 chid:*)",
+      "Bash(vc-x1:*)"
     ]
   }
 }
