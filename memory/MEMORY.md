@@ -17,6 +17,7 @@
 - [Recognize when stuck — 5+ min thinking on simple task means stuck](feedback_stuck_detection.md)
 - [No --allow-new flag for jj git push](feedback_jj_no_allow_new.md)
 - [No text output after finalize — trailing writes miss squash window](feedback_no_finalize_echo.md)
+- [Ask for clarification on ambiguous input instead of spinning](feedback_ask_on_ambiguity.md)
 
 ## Lessons Learned
 
