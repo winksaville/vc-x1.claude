@@ -1,0 +1,1288 @@
+     1→// Copyright 2020 The Jujutsu Authors
+     2→//
+     3→// Licensed under the Apache License, Version 2.0 (the "License");
+     4→// you may not use this file except in compliance with the License.
+     5→// You may obtain a copy of the License at
+     6→//
+     7→// https://www.apache.org/licenses/LICENSE-2.0
+     8→//
+     9→// Unless required by applicable law or agreed to in writing, software
+    10→// distributed under the License is distributed on an "AS IS" BASIS,
+    11→// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    12→// See the License for the specific language governing permissions and
+    13→// limitations under the License.
+    14→
+    15→#![expect(missing_docs)]
+    16→
+    17→use std::collections::BTreeMap;
+    18→use std::collections::HashMap;
+    19→use std::collections::HashSet;
+    20→use std::fmt::Debug;
+    21→use std::fs;
+    22→use std::io;
+    23→use std::io::ErrorKind;
+    24→use std::io::Write as _;
+    25→use std::path::Path;
+    26→use std::path::PathBuf;
+    27→use std::time::SystemTime;
+    28→
+    29→use async_trait::async_trait;
+    30→use itertools::Itertools as _;
+    31→use pollster::FutureExt as _;
+    32→use prost::Message as _;
+    33→use smallvec::SmallVec;
+    34→use tempfile::NamedTempFile;
+    35→use thiserror::Error;
+    36→
+    37→use crate::backend::BackendInitError;
+    38→use crate::backend::CommitId;
+    39→use crate::backend::MillisSinceEpoch;
+    40→use crate::backend::Timestamp;
+    41→use crate::content_hash::blake2b_hash;
+    42→use crate::dag_walk;
+    43→use crate::file_util::IoResultExt as _;
+    44→use crate::file_util::PathError;
+    45→use crate::file_util::persist_content_addressed_temp_file;
+    46→use crate::merge::Merge;
+    47→use crate::object_id::HexPrefix;
+    48→use crate::object_id::ObjectId;
+    49→use crate::object_id::PrefixResolution;
+    50→use crate::op_store;
+    51→use crate::op_store::OpStore;
+    52→use crate::op_store::OpStoreError;
+    53→use crate::op_store::OpStoreResult;
+    54→use crate::op_store::Operation;
+    55→use crate::op_store::OperationId;
+    56→use crate::op_store::OperationMetadata;
+    57→use crate::op_store::RefTarget;
+    58→use crate::op_store::RemoteRef;
+    59→use crate::op_store::RemoteRefState;
+    60→use crate::op_store::RemoteView;
+    61→use crate::op_store::RootOperationData;
+    62→use crate::op_store::TimestampRange;
+    63→use crate::op_store::View;
+    64→use crate::op_store::ViewId;
+    65→use crate::ref_name::GitRefNameBuf;
+    66→use crate::ref_name::RefNameBuf;
+    67→use crate::ref_name::RemoteNameBuf;
+    68→use crate::ref_name::WorkspaceName;
+    69→use crate::ref_name::WorkspaceNameBuf;
+    70→
+    71→// BLAKE2b-512 hash length in bytes
+    72→const OPERATION_ID_LENGTH: usize = 64;
+    73→const VIEW_ID_LENGTH: usize = 64;
+    74→
+    75→/// Error that may occur during [`SimpleOpStore`] initialization.
+    76→#[derive(Debug, Error)]
+    77→#[error("Failed to initialize simple operation store")]
+    78→pub struct SimpleOpStoreInitError(#[from] pub PathError);
+    79→
+    80→impl From<SimpleOpStoreInitError> for BackendInitError {
+    81→    fn from(err: SimpleOpStoreInitError) -> Self {
+    82→        Self(err.into())
+    83→    }
+    84→}
+    85→
+    86→#[derive(Debug)]
+    87→pub struct SimpleOpStore {
+    88→    path: PathBuf,
+    89→    root_data: RootOperationData,
+    90→    root_operation_id: OperationId,
+    91→    root_view_id: ViewId,
+    92→}
+    93→
+    94→impl SimpleOpStore {
+    95→    pub fn name() -> &'static str {
+    96→        "simple_op_store"
+    97→    }
+    98→
+    99→    /// Creates an empty OpStore. Returns error if it already exists.
+   100→    pub fn init(
+   101→        store_path: &Path,
+   102→        root_data: RootOperationData,
+   103→    ) -> Result<Self, SimpleOpStoreInitError> {
+   104→        let store = Self::new(store_path, root_data);
+   105→        store.init_base_dirs()?;
+   106→        Ok(store)
+   107→    }
+   108→
+   109→    /// Load an existing OpStore
+   110→    pub fn load(store_path: &Path, root_data: RootOperationData) -> Self {
+   111→        Self::new(store_path, root_data)
+   112→    }
+   113→
+   114→    fn new(store_path: &Path, root_data: RootOperationData) -> Self {
+   115→        Self {
+   116→            path: store_path.to_path_buf(),
+   117→            root_data,
+   118→            root_operation_id: OperationId::from_bytes(&[0; OPERATION_ID_LENGTH]),
+   119→            root_view_id: ViewId::from_bytes(&[0; VIEW_ID_LENGTH]),
+   120→        }
+   121→    }
+   122→
+   123→    fn init_base_dirs(&self) -> Result<(), PathError> {
+   124→        for dir in [self.views_dir(), self.operations_dir()] {
+   125→            fs::create_dir(&dir).context(&dir)?;
+   126→        }
+   127→        Ok(())
+   128→    }
+   129→
+   130→    fn views_dir(&self) -> PathBuf {
+   131→        self.path.join("views")
+   132→    }
+   133→
+   134→    fn operations_dir(&self) -> PathBuf {
+   135→        self.path.join("operations")
+   136→    }
+   137→}
+   138→
+   139→#[async_trait]
+   140→impl OpStore for SimpleOpStore {
+   141→    fn name(&self) -> &str {
+   142→        Self::name()
+   143→    }
+   144→
+   145→    fn root_operation_id(&self) -> &OperationId {
+   146→        &self.root_operation_id
+   147→    }
+   148→
+   149→    async fn read_view(&self, id: &ViewId) -> OpStoreResult<View> {
+   150→        if *id == self.root_view_id {
+   151→            return Ok(View::make_root(self.root_data.root_commit_id.clone()));
+   152→        }
+   153→
+   154→        let path = self.views_dir().join(id.hex());
+   155→        let buf = fs::read(&path)
+   156→            .context(&path)
+   157→            .map_err(|err| io_to_read_error(err, id))?;
+   158→
+   159→        let proto = crate::protos::simple_op_store::View::decode(&*buf)
+   160→            .map_err(|err| to_read_error(err.into(), id))?;
+   161→        view_from_proto(proto).map_err(|err| to_read_error(err.into(), id))
+   162→    }
+   163→
+   164→    async fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
+   165→        let dir = self.views_dir();
+   166→        let temp_file = NamedTempFile::new_in(&dir)
+   167→            .context(&dir)
+   168→            .map_err(|err| io_to_write_error(err, "view"))?;
+   169→
+   170→        let proto = view_to_proto(view);
+   171→        temp_file
+   172→            .as_file()
+   173→            .write_all(&proto.encode_to_vec())
+   174→            .context(temp_file.path())
+   175→            .map_err(|err| io_to_write_error(err, "view"))?;
+   176→
+   177→        let id = ViewId::new(blake2b_hash(view).to_vec());
+   178→
+   179→        let new_path = dir.join(id.hex());
+   180→        persist_content_addressed_temp_file(temp_file, &new_path)
+   181→            .context(&new_path)
+   182→            .map_err(|err| io_to_write_error(err, "view"))?;
+   183→        Ok(id)
+   184→    }
+   185→
+   186→    async fn read_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
+   187→        if *id == self.root_operation_id {
+   188→            return Ok(Operation::make_root(self.root_view_id.clone()));
+   189→        }
+   190→
+   191→        let path = self.operations_dir().join(id.hex());
+   192→        let buf = fs::read(&path)
+   193→            .context(&path)
+   194→            .map_err(|err| io_to_read_error(err, id))?;
+   195→
+   196→        let proto = crate::protos::simple_op_store::Operation::decode(&*buf)
+   197→            .map_err(|err| to_read_error(err.into(), id))?;
+   198→        let mut operation =
+   199→            operation_from_proto(proto).map_err(|err| to_read_error(err.into(), id))?;
+   200→        if operation.parents.is_empty() {
+   201→            // Repos created before we had the root operation will have an operation without
+   202→            // parents.
+   203→            operation.parents.push(self.root_operation_id.clone());
+   204→        }
+   205→        Ok(operation)
+   206→    }
+   207→
+   208→    async fn write_operation(&self, operation: &Operation) -> OpStoreResult<OperationId> {
+   209→        assert!(!operation.parents.is_empty());
+   210→        let dir = self.operations_dir();
+   211→        let temp_file = NamedTempFile::new_in(&dir)
+   212→            .context(&dir)
+   213→            .map_err(|err| io_to_write_error(err, "operation"))?;
+   214→
+   215→        let proto = operation_to_proto(operation);
+   216→        temp_file
+   217→            .as_file()
+   218→            .write_all(&proto.encode_to_vec())
+   219→            .context(temp_file.path())
+   220→            .map_err(|err| io_to_write_error(err, "operation"))?;
+   221→
+   222→        let id = OperationId::new(blake2b_hash(operation).to_vec());
+   223→
+   224→        let new_path = dir.join(id.hex());
+   225→        persist_content_addressed_temp_file(temp_file, &new_path)
+   226→            .context(&new_path)
+   227→            .map_err(|err| io_to_write_error(err, "operation"))?;
+   228→        Ok(id)
+   229→    }
+   230→
+   231→    async fn resolve_operation_id_prefix(
+   232→        &self,
+   233→        prefix: &HexPrefix,
+   234→    ) -> OpStoreResult<PrefixResolution<OperationId>> {
+   235→        let op_dir = self.operations_dir();
+   236→        let find = || -> io::Result<_> {
+   237→            let matches_root = prefix.matches(&self.root_operation_id);
+   238→            let hex_prefix = prefix.hex();
+   239→            if hex_prefix.len() == OPERATION_ID_LENGTH * 2 {
+   240→                // Fast path for full-length ID
+   241→                if matches_root || op_dir.join(hex_prefix).try_exists()? {
+   242→                    let id = OperationId::from_bytes(prefix.as_full_bytes().unwrap());
+   243→                    return Ok(PrefixResolution::SingleMatch(id));
+   244→                } else {
+   245→                    return Ok(PrefixResolution::NoMatch);
+   246→                }
+   247→            }
+   248→
+   249→            let mut matched = matches_root.then(|| self.root_operation_id.clone());
+   250→            for entry in op_dir.read_dir()? {
+   251→                let Ok(name) = entry?.file_name().into_string() else {
+   252→                    continue; // Skip invalid UTF-8
+   253→                };
+   254→                if !name.starts_with(&hex_prefix) {
+   255→                    continue;
+   256→                }
+   257→                let Some(id) = OperationId::try_from_hex(&name) else {
+   258→                    continue; // Skip invalid hex
+   259→                };
+   260→                if matched.is_some() {
+   261→                    return Ok(PrefixResolution::AmbiguousMatch);
+   262→                }
+   263→                matched = Some(id);
+   264→            }
+   265→            if let Some(id) = matched {
+   266→                Ok(PrefixResolution::SingleMatch(id))
+   267→            } else {
+   268→                Ok(PrefixResolution::NoMatch)
+   269→            }
+   270→        };
+   271→        find()
+   272→            .context(&op_dir)
+   273→            .map_err(|err| OpStoreError::Other(err.into()))
+   274→    }
+   275→
+   276→    #[tracing::instrument(skip(self))]
+   277→    fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
+   278→        let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
+   279→            let name = entry.file_name().into_string().ok()?;
+   280→            OperationId::try_from_hex(name)
+   281→        };
+   282→        let to_view_id = |entry: &fs::DirEntry| -> Option<ViewId> {
+   283→            let name = entry.file_name().into_string().ok()?;
+   284→            ViewId::try_from_hex(name)
+   285→        };
+   286→        let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
+   287→            let path = entry.path();
+   288→            // Check timestamp, but there's still TOCTOU problem if an existing
+   289→            // file is renewed.
+   290→            let metadata = entry.metadata().context(&path)?;
+   291→            let mtime = metadata.modified().expect("unsupported platform?");
+   292→            if mtime > keep_newer {
+   293→                tracing::trace!(?path, "not removing");
+   294→                Ok(())
+   295→            } else {
+   296→                tracing::trace!(?path, "removing");
+   297→                fs::remove_file(&path).context(&path)
+   298→            }
+   299→        };
+   300→
+   301→        // Reachable objects are resolved without considering the keep_newer
+   302→        // parameter. We could collect ancestors of the "new" operations here,
+   303→        // but more files can be added anyway after that.
+   304→        let read_op = |id: &OperationId| {
+   305→            self.read_operation(id)
+   306→                .block_on()
+   307→                .map(|data| (id.clone(), data))
+   308→        };
+   309→        let reachable_ops: HashMap<OperationId, Operation> = dag_walk::dfs_ok(
+   310→            head_ids.iter().map(read_op),
+   311→            |(id, _)| id.clone(),
+   312→            |(_, data)| data.parents.iter().map(read_op).collect_vec(),
+   313→        )
+   314→        .try_collect()?;
+   315→        let reachable_views: HashSet<&ViewId> =
+   316→            reachable_ops.values().map(|data| &data.view_id).collect();
+   317→        tracing::info!(
+   318→            reachable_op_count = reachable_ops.len(),
+   319→            reachable_view_count = reachable_views.len(),
+   320→            "collected reachable objects"
+   321→        );
+   322→
+   323→        let prune_ops = || -> Result<(), PathError> {
+   324→            let op_dir = self.operations_dir();
+   325→            for entry in op_dir.read_dir().context(&op_dir)? {
+   326→                let entry = entry.context(&op_dir)?;
+   327→                let Some(id) = to_op_id(&entry) else {
+   328→                    tracing::trace!(?entry, "skipping invalid file name");
+   329→                    continue;
+   330→                };
+   331→                if reachable_ops.contains_key(&id) {
+   332→                    continue;
+   333→                }
+   334→                // If the operation was added after collecting reachable_views,
+   335→                // its view mtime would also be renewed. So there's no need to
+   336→                // update the reachable_views set to preserve the view.
+   337→                remove_file_if_not_new(&entry)?;
+   338→            }
+   339→            Ok(())
+   340→        };
+   341→        prune_ops().map_err(|err| OpStoreError::Other(err.into()))?;
+   342→
+   343→        let prune_views = || -> Result<(), PathError> {
+   344→            let view_dir = self.views_dir();
+   345→            for entry in view_dir.read_dir().context(&view_dir)? {
+   346→                let entry = entry.context(&view_dir)?;
+   347→                let Some(id) = to_view_id(&entry) else {
+   348→                    tracing::trace!(?entry, "skipping invalid file name");
+   349→                    continue;
+   350→                };
+   351→                if reachable_views.contains(&id) {
+   352→                    continue;
+   353→                }
+   354→                remove_file_if_not_new(&entry)?;
+   355→            }
+   356→            Ok(())
+   357→        };
+   358→        prune_views().map_err(|err| OpStoreError::Other(err.into()))?;
+   359→
+   360→        Ok(())
+   361→    }
+   362→}
+   363→
+   364→fn io_to_read_error(err: PathError, id: &impl ObjectId) -> OpStoreError {
+   365→    if err.source.kind() == ErrorKind::NotFound {
+   366→        OpStoreError::ObjectNotFound {
+   367→            object_type: id.object_type(),
+   368→            hash: id.hex(),
+   369→            source: Box::new(err),
+   370→        }
+   371→    } else {
+   372→        to_read_error(err.into(), id)
+   373→    }
+   374→}
+   375→
+   376→fn to_read_error(
+   377→    source: Box<dyn std::error::Error + Send + Sync>,
+   378→    id: &impl ObjectId,
+   379→) -> OpStoreError {
+   380→    OpStoreError::ReadObject {
+   381→        object_type: id.object_type(),
+   382→        hash: id.hex(),
+   383→        source,
+   384→    }
+   385→}
+   386→
+   387→fn io_to_write_error(err: PathError, object_type: &'static str) -> OpStoreError {
+   388→    OpStoreError::WriteObject {
+   389→        object_type,
+   390→        source: Box::new(err),
+   391→    }
+   392→}
+   393→
+   394→#[derive(Debug, Error)]
+   395→enum PostDecodeError {
+   396→    #[error("Invalid hash length (expected {expected} bytes, got {actual} bytes)")]
+   397→    InvalidHashLength { expected: usize, actual: usize },
+   398→    #[error("Invalid remote ref state value {0}")]
+   399→    InvalidRemoteRefStateValue(i32),
+   400→    #[error("Invalid number of ref target terms {0}")]
+   401→    EvenNumberOfRefTargetTerms(usize),
+   402→}
+   403→
+   404→fn operation_id_from_proto(bytes: Vec<u8>) -> Result<OperationId, PostDecodeError> {
+   405→    if bytes.len() != OPERATION_ID_LENGTH {
+   406→        Err(PostDecodeError::InvalidHashLength {
+   407→            expected: OPERATION_ID_LENGTH,
+   408→            actual: bytes.len(),
+   409→        })
+   410→    } else {
+   411→        Ok(OperationId::new(bytes))
+   412→    }
+   413→}
+   414→
+   415→fn view_id_from_proto(bytes: Vec<u8>) -> Result<ViewId, PostDecodeError> {
+   416→    if bytes.len() != VIEW_ID_LENGTH {
+   417→        Err(PostDecodeError::InvalidHashLength {
+   418→            expected: VIEW_ID_LENGTH,
+   419→            actual: bytes.len(),
+   420→        })
+   421→    } else {
+   422→        Ok(ViewId::new(bytes))
+   423→    }
+   424→}
+   425→
+   426→fn timestamp_to_proto(timestamp: &Timestamp) -> crate::protos::simple_op_store::Timestamp {
+   427→    crate::protos::simple_op_store::Timestamp {
+   428→        millis_since_epoch: timestamp.timestamp.0,
+   429→        tz_offset: timestamp.tz_offset,
+   430→    }
+   431→}
+   432→
+   433→fn timestamp_from_proto(proto: crate::protos::simple_op_store::Timestamp) -> Timestamp {
+   434→    Timestamp {
+   435→        timestamp: MillisSinceEpoch(proto.millis_since_epoch),
+   436→        tz_offset: proto.tz_offset,
+   437→    }
+   438→}
+   439→
+   440→fn operation_metadata_to_proto(
+   441→    metadata: &OperationMetadata,
+   442→) -> crate::protos::simple_op_store::OperationMetadata {
+   443→    crate::protos::simple_op_store::OperationMetadata {
+   444→        start_time: Some(timestamp_to_proto(&metadata.time.start)),
+   445→        end_time: Some(timestamp_to_proto(&metadata.time.end)),
+   446→        description: metadata.description.clone(),
+   447→        hostname: metadata.hostname.clone(),
+   448→        username: metadata.username.clone(),
+   449→        is_snapshot: metadata.is_snapshot,
+   450→        tags: metadata.tags.clone(),
+   451→    }
+   452→}
+   453→
+   454→fn operation_metadata_from_proto(
+   455→    proto: crate::protos::simple_op_store::OperationMetadata,
+   456→) -> OperationMetadata {
+   457→    let time = TimestampRange {
+   458→        start: timestamp_from_proto(proto.start_time.unwrap_or_default()),
+   459→        end: timestamp_from_proto(proto.end_time.unwrap_or_default()),
+   460→    };
+   461→    OperationMetadata {
+   462→        time,
+   463→        description: proto.description,
+   464→        hostname: proto.hostname,
+   465→        username: proto.username,
+   466→        is_snapshot: proto.is_snapshot,
+   467→        tags: proto.tags,
+   468→    }
+   469→}
+   470→
+   471→fn commit_predecessors_map_to_proto(
+   472→    map: &BTreeMap<CommitId, Vec<CommitId>>,
+   473→) -> Vec<crate::protos::simple_op_store::CommitPredecessors> {
+   474→    map.iter()
+   475→        .map(
+   476→            |(commit_id, predecessor_ids)| crate::protos::simple_op_store::CommitPredecessors {
+   477→                commit_id: commit_id.to_bytes(),
+   478→                predecessor_ids: predecessor_ids.iter().map(|id| id.to_bytes()).collect(),
+   479→            },
+   480→        )
+   481→        .collect()
+   482→}
+   483→
+   484→fn commit_predecessors_map_from_proto(
+   485→    proto: Vec<crate::protos::simple_op_store::CommitPredecessors>,
+   486→) -> BTreeMap<CommitId, Vec<CommitId>> {
+   487→    proto
+   488→        .into_iter()
+   489→        .map(|entry| {
+   490→            let commit_id = CommitId::new(entry.commit_id);
+   491→            let predecessor_ids = entry
+   492→                .predecessor_ids
+   493→                .into_iter()
+   494→                .map(CommitId::new)
+   495→                .collect();
+   496→            (commit_id, predecessor_ids)
+   497→        })
+   498→        .collect()
+   499→}
+   500→
+   501→fn operation_to_proto(operation: &Operation) -> crate::protos::simple_op_store::Operation {
+   502→    let (commit_predecessors, stores_commit_predecessors) = match &operation.commit_predecessors {
+   503→        Some(map) => (commit_predecessors_map_to_proto(map), true),
+   504→        None => (vec![], false),
+   505→    };
+   506→    let parents = operation.parents.iter().map(|id| id.to_bytes()).collect();
+   507→    crate::protos::simple_op_store::Operation {
+   508→        view_id: operation.view_id.as_bytes().to_vec(),
+   509→        parents,
+   510→        metadata: Some(operation_metadata_to_proto(&operation.metadata)),
+   511→        commit_predecessors,
+   512→        stores_commit_predecessors,
+   513→    }
+   514→}
+   515→
+   516→fn operation_from_proto(
+   517→    proto: crate::protos::simple_op_store::Operation,
+   518→) -> Result<Operation, PostDecodeError> {
+   519→    let parents = proto
+   520→        .parents
+   521→        .into_iter()
+   522→        .map(operation_id_from_proto)
+   523→        .try_collect()?;
+   524→    let view_id = view_id_from_proto(proto.view_id)?;
+   525→    let metadata = operation_metadata_from_proto(proto.metadata.unwrap_or_default());
+   526→    let commit_predecessors = proto
+   527→        .stores_commit_predecessors
+   528→        .then(|| commit_predecessors_map_from_proto(proto.commit_predecessors));
+   529→    Ok(Operation {
+   530→        view_id,
+   531→        parents,
+   532→        metadata,
+   533→        commit_predecessors,
+   534→    })
+   535→}
+   536→
+   537→fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
+   538→    let wc_commit_ids = view
+   539→        .wc_commit_ids
+   540→        .iter()
+   541→        .map(|(name, id)| (name.into(), id.to_bytes()))
+   542→        .collect();
+   543→    let head_ids = view.head_ids.iter().map(|id| id.to_bytes()).collect();
+   544→
+   545→    let bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
+   546→
+   547→    let local_tags = view
+   548→        .local_tags
+   549→        .iter()
+   550→        .map(|(name, target)| crate::protos::simple_op_store::Tag {
+   551→            name: name.into(),
+   552→            target: ref_target_to_proto(target),
+   553→        })
+   554→        .collect();
+   555→
+   556→    let remote_views = remote_views_to_proto(&view.remote_views);
+   557→
+   558→    let git_refs = view
+   559→        .git_refs
+   560→        .iter()
+   561→        .map(|(name, target)| {
+   562→            #[expect(deprecated)]
+   563→            crate::protos::simple_op_store::GitRef {
+   564→                name: name.into(),
+   565→                commit_id: Default::default(),
+   566→                target: ref_target_to_proto(target),
+   567→            }
+   568→        })
+   569→        .collect();
+   570→
+   571→    let git_head = ref_target_to_proto(&view.git_head);
+   572→
+   573→    #[expect(deprecated)]
+   574→    crate::protos::simple_op_store::View {
+   575→        head_ids,
+   576→        wc_commit_id: Default::default(),
+   577→        wc_commit_ids,
+   578→        bookmarks,
+   579→        local_tags,
+   580→        remote_views,
+   581→        git_refs,
+   582→        git_head_legacy: Default::default(),
+   583→        git_head,
+   584→        // New/loaded view should have been migrated to the latest format
+   585→        has_git_refs_migrated_to_remote_tags: true,
+   586→    }
+   587→}
+   588→
+   589→fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, PostDecodeError> {
+   590→    // TODO: validate commit id length?
+   591→    // For compatibility with old repos before we had support for multiple working
+   592→    // copies
+   593→    let mut wc_commit_ids = BTreeMap::new();
+   594→    #[expect(deprecated)]
+   595→    if !proto.wc_commit_id.is_empty() {
+   596→        wc_commit_ids.insert(
+   597→            WorkspaceName::DEFAULT.to_owned(),
+   598→            CommitId::new(proto.wc_commit_id),
+   599→        );
+   600→    }
+   601→    for (name, commit_id) in proto.wc_commit_ids {
+   602→        wc_commit_ids.insert(WorkspaceNameBuf::from(name), CommitId::new(commit_id));
+   603→    }
+   604→    let head_ids = proto.head_ids.into_iter().map(CommitId::new).collect();
+   605→
+   606→    let (local_bookmarks, mut remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
+   607→
+   608→    let local_tags = proto
+   609→        .local_tags
+   610→        .into_iter()
+   611→        .map(|tag_proto| {
+   612→            let name: RefNameBuf = tag_proto.name.into();
+   613→            (name, ref_target_from_proto(tag_proto.target))
+   614→        })
+   615→        .collect();
+   616→
+   617→    let git_refs: BTreeMap<_, _> = proto
+   618→        .git_refs
+   619→        .into_iter()
+   620→        .map(|git_ref| {
+   621→            let name: GitRefNameBuf = git_ref.name.into();
+   622→            let target = if git_ref.target.is_some() {
+   623→                ref_target_from_proto(git_ref.target)
+   624→            } else {
+   625→                // Legacy format
+   626→                #[expect(deprecated)]
+   627→                RefTarget::normal(CommitId::new(git_ref.commit_id))
+   628→            };
+   629→            (name, target)
+   630→        })
+   631→        .collect();
+   632→
+   633→    // Use legacy remote_views only when new data isn't available (jj < 0.34)
+   634→    if !proto.remote_views.is_empty() {
+   635→        remote_views = remote_views_from_proto(proto.remote_views)?;
+   636→    }
+   637→
+   638→    #[cfg(feature = "git")]
+   639→    if !proto.has_git_refs_migrated_to_remote_tags {
+   640→        tracing::info!("migrating Git-tracking tags");
+   641→        let git_tags: BTreeMap<_, _> = git_refs
+   642→            .iter()
+   643→            .filter_map(|(full_name, target)| {
+   644→                let name = full_name.as_str().strip_prefix("refs/tags/")?;
+   645→                assert!(!name.is_empty());
+   646→                let name: RefNameBuf = name.into();
+   647→                let remote_ref = RemoteRef {
+   648→                    target: target.clone(),
+   649→                    state: RemoteRefState::Tracked,
+   650→                };
+   651→                Some((name, remote_ref))
+   652→            })
+   653→            .collect();
+   654→        if !git_tags.is_empty() {
+   655→            let git_view = remote_views
+   656→                .entry(crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.to_owned())
+   657→                .or_default();
+   658→            assert!(git_view.tags.is_empty());
+   659→            git_view.tags = git_tags;
+   660→        }
+   661→    }
+   662→
+   663→    #[expect(deprecated)]
+   664→    let git_head = if proto.git_head.is_some() {
+   665→        ref_target_from_proto(proto.git_head)
+   666→    } else if !proto.git_head_legacy.is_empty() {
+   667→        RefTarget::normal(CommitId::new(proto.git_head_legacy))
+   668→    } else {
+   669→        RefTarget::absent()
+   670→    };
+   671→
+   672→    Ok(View {
+   673→        head_ids,
+   674→        local_bookmarks,
+   675→        local_tags,
+   676→        remote_views,
+   677→        git_refs,
+   678→        git_head,
+   679→        wc_commit_ids,
+   680→    })
+   681→}
+   682→
+   683→fn bookmark_views_to_proto_legacy(
+   684→    local_bookmarks: &BTreeMap<RefNameBuf, RefTarget>,
+   685→    remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
+   686→) -> Vec<crate::protos::simple_op_store::Bookmark> {
+   687→    op_store::merge_join_ref_views(local_bookmarks, remote_views, |view| &view.bookmarks)
+   688→        .map(|(name, bookmark_target)| {
+   689→            let local_target = ref_target_to_proto(bookmark_target.local_target);
+   690→            // TODO: Drop serialization to the old format in jj 0.40 or so.
+   691→            let remote_bookmarks = bookmark_target
+   692→                .remote_refs
+   693→                .iter()
+   694→                .map(
+   695→                    |&(remote_name, remote_ref)| crate::protos::simple_op_store::RemoteBookmark {
+   696→                        remote_name: remote_name.into(),
+   697→                        target: ref_target_to_proto(&remote_ref.target),
+   698→                        state: Some(remote_ref_state_to_proto(remote_ref.state)),
+   699→                    },
+   700→                )
+   701→                .collect();
+   702→            #[expect(deprecated)]
+   703→            crate::protos::simple_op_store::Bookmark {
+   704→                name: name.into(),
+   705→                local_target,
+   706→                remote_bookmarks,
+   707→            }
+   708→        })
+   709→        .collect()
+   710→}
+   711→
+   712→type BookmarkViews = (
+   713→    BTreeMap<RefNameBuf, RefTarget>,
+   714→    BTreeMap<RemoteNameBuf, RemoteView>,
+   715→);
+   716→
+   717→fn bookmark_views_from_proto_legacy(
+   718→    bookmarks_legacy: Vec<crate::protos::simple_op_store::Bookmark>,
+   719→) -> Result<BookmarkViews, PostDecodeError> {
+   720→    let mut local_bookmarks: BTreeMap<RefNameBuf, RefTarget> = BTreeMap::new();
+   721→    let mut remote_views: BTreeMap<RemoteNameBuf, RemoteView> = BTreeMap::new();
+   722→    for bookmark_proto in bookmarks_legacy {
+   723→        let bookmark_name: RefNameBuf = bookmark_proto.name.into();
+   724→        let local_target = ref_target_from_proto(bookmark_proto.local_target);
+   725→        #[expect(deprecated)]
+   726→        let remote_bookmarks = bookmark_proto.remote_bookmarks;
+   727→        for remote_bookmark in remote_bookmarks {
+   728→            let remote_name: RemoteNameBuf = remote_bookmark.remote_name.into();
+   729→            let state = match remote_bookmark.state {
+   730→                Some(n) => remote_ref_state_from_proto(n)?,
+   731→                // Legacy view saved by jj < 0.11. The proto field is not
+   732→                // changed to non-optional type because that would break forward
+   733→                // compatibility. Zero may be omitted if the field is optional.
+   734→                None => RemoteRefState::New,
+   735→            };
+   736→            let remote_view = remote_views.entry(remote_name).or_default();
+   737→            let remote_ref = RemoteRef {
+   738→                target: ref_target_from_proto(remote_bookmark.target),
+   739→                state,
+   740→            };
+   741→            remote_view
+   742→                .bookmarks
+   743→                .insert(bookmark_name.clone(), remote_ref);
+   744→        }
+   745→        if local_target.is_present() {
+   746→            local_bookmarks.insert(bookmark_name, local_target);
+   747→        }
+   748→    }
+   749→    Ok((local_bookmarks, remote_views))
+   750→}
+   751→
+   752→fn remote_views_to_proto(
+   753→    remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
+   754→) -> Vec<crate::protos::simple_op_store::RemoteView> {
+   755→    remote_views
+   756→        .iter()
+   757→        .map(|(name, view)| crate::protos::simple_op_store::RemoteView {
+   758→            name: name.into(),
+   759→            bookmarks: remote_refs_to_proto(&view.bookmarks),
+   760→            tags: remote_refs_to_proto(&view.tags),
+   761→        })
+   762→        .collect()
+   763→}
+   764→
+   765→fn remote_views_from_proto(
+   766→    remote_views_proto: Vec<crate::protos::simple_op_store::RemoteView>,
+   767→) -> Result<BTreeMap<RemoteNameBuf, RemoteView>, PostDecodeError> {
+   768→    remote_views_proto
+   769→        .into_iter()
+   770→        .map(|proto| {
+   771→            let name: RemoteNameBuf = proto.name.into();
+   772→            let view = RemoteView {
+   773→                bookmarks: remote_refs_from_proto(proto.bookmarks)?,
+   774→                tags: remote_refs_from_proto(proto.tags)?,
+   775→            };
+   776→            Ok((name, view))
+   777→        })
+   778→        .collect()
+   779→}
+   780→
+   781→fn remote_refs_to_proto(
+   782→    remote_refs: &BTreeMap<RefNameBuf, RemoteRef>,
+   783→) -> Vec<crate::protos::simple_op_store::RemoteRef> {
+   784→    remote_refs
+   785→        .iter()
+   786→        .map(
+   787→            |(name, remote_ref)| crate::protos::simple_op_store::RemoteRef {
+   788→                name: name.into(),
+   789→                target_terms: ref_target_to_terms_proto(&remote_ref.target),
+   790→                state: remote_ref_state_to_proto(remote_ref.state),
+   791→            },
+   792→        )
+   793→        .collect()
+   794→}
+   795→
+   796→fn remote_refs_from_proto(
+   797→    remote_refs_proto: Vec<crate::protos::simple_op_store::RemoteRef>,
+   798→) -> Result<BTreeMap<RefNameBuf, RemoteRef>, PostDecodeError> {
+   799→    remote_refs_proto
+   800→        .into_iter()
+   801→        .map(|proto| {
+   802→            let name: RefNameBuf = proto.name.into();
+   803→            let remote_ref = RemoteRef {
+   804→                target: ref_target_from_terms_proto(proto.target_terms)?,
+   805→                state: remote_ref_state_from_proto(proto.state)?,
+   806→            };
+   807→            Ok((name, remote_ref))
+   808→        })
+   809→        .collect()
+   810→}
+   811→
+   812→fn ref_target_to_terms_proto(
+   813→    value: &RefTarget,
+   814→) -> Vec<crate::protos::simple_op_store::RefTargetTerm> {
+   815→    value
+   816→        .as_merge()
+   817→        .iter()
+   818→        .map(|term| term.as_ref().map(|id| id.to_bytes()))
+   819→        .map(|value| crate::protos::simple_op_store::RefTargetTerm { value })
+   820→        .collect()
+   821→}
+   822→
+   823→fn ref_target_from_terms_proto(
+   824→    proto: Vec<crate::protos::simple_op_store::RefTargetTerm>,
+   825→) -> Result<RefTarget, PostDecodeError> {
+   826→    let terms: SmallVec<[_; 1]> = proto
+   827→        .into_iter()
+   828→        .map(|crate::protos::simple_op_store::RefTargetTerm { value }| value.map(CommitId::new))
+   829→        .collect();
+   830→    if terms.len().is_multiple_of(2) {
+   831→        Err(PostDecodeError::EvenNumberOfRefTargetTerms(terms.len()))
+   832→    } else {
+   833→        Ok(RefTarget::from_merge(Merge::from_vec(terms)))
+   834→    }
+   835→}
+   836→
+   837→fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_store::RefTarget> {
+   838→    let term_to_proto =
+   839→        |term: &Option<CommitId>| crate::protos::simple_op_store::ref_conflict::Term {
+   840→            value: term.as_ref().map(|id| id.to_bytes()),
+   841→        };
+   842→    let merge = value.as_merge();
+   843→    let conflict_proto = crate::protos::simple_op_store::RefConflict {
+   844→        removes: merge.removes().map(term_to_proto).collect(),
+   845→        adds: merge.adds().map(term_to_proto).collect(),
+   846→    };
+   847→    let proto = crate::protos::simple_op_store::RefTarget {
+   848→        value: Some(crate::protos::simple_op_store::ref_target::Value::Conflict(
+   849→            conflict_proto,
+   850→        )),
+   851→    };
+   852→    Some(proto)
+   853→}
+   854→
+   855→#[expect(deprecated)]
+   856→#[cfg(test)]
+   857→fn ref_target_to_proto_legacy(
+   858→    value: &RefTarget,
+   859→) -> Option<crate::protos::simple_op_store::RefTarget> {
+   860→    if let Some(id) = value.as_normal() {
+   861→        let proto = crate::protos::simple_op_store::RefTarget {
+   862→            value: Some(crate::protos::simple_op_store::ref_target::Value::CommitId(
+   863→                id.to_bytes(),
+   864→            )),
+   865→        };
+   866→        Some(proto)
+   867→    } else if value.has_conflict() {
+   868→        let ref_conflict_proto = crate::protos::simple_op_store::RefConflictLegacy {
+   869→            removes: value.removed_ids().map(|id| id.to_bytes()).collect(),
+   870→            adds: value.added_ids().map(|id| id.to_bytes()).collect(),
+   871→        };
+   872→        let proto = crate::protos::simple_op_store::RefTarget {
+   873→            value: Some(
+   874→                crate::protos::simple_op_store::ref_target::Value::ConflictLegacy(
+   875→                    ref_conflict_proto,
+   876→                ),
+   877→            ),
+   878→        };
+   879→        Some(proto)
+   880→    } else {
+   881→        assert!(value.is_absent());
+   882→        None
+   883→    }
+   884→}
+   885→
+   886→fn ref_target_from_proto(
+   887→    maybe_proto: Option<crate::protos::simple_op_store::RefTarget>,
+   888→) -> RefTarget {
+   889→    // TODO: Delete legacy format handling when we decide to drop support for views
+   890→    // saved by jj <= 0.8.
+   891→    let Some(proto) = maybe_proto else {
+   892→        // Legacy absent id
+   893→        return RefTarget::absent();
+   894→    };
+   895→    match proto.value.unwrap() {
+   896→        #[expect(deprecated)]
+   897→        crate::protos::simple_op_store::ref_target::Value::CommitId(id) => {
+   898→            // Legacy non-conflicting id
+   899→            RefTarget::normal(CommitId::new(id))
+   900→        }
+   901→        #[expect(deprecated)]
+   902→        crate::protos::simple_op_store::ref_target::Value::ConflictLegacy(conflict) => {
+   903→            // Legacy conflicting ids
+   904→            let removes = conflict.removes.into_iter().map(CommitId::new);
+   905→            let adds = conflict.adds.into_iter().map(CommitId::new);
+   906→            RefTarget::from_legacy_form(removes, adds)
+   907→        }
+   908→        crate::protos::simple_op_store::ref_target::Value::Conflict(conflict) => {
+   909→            let term_from_proto = |term: crate::protos::simple_op_store::ref_conflict::Term| {
+   910→                term.value.map(CommitId::new)
+   911→            };
+   912→            let removes = conflict.removes.into_iter().map(term_from_proto);
+   913→            let adds = conflict.adds.into_iter().map(term_from_proto);
+   914→            RefTarget::from_merge(Merge::from_removes_adds(removes, adds))
+   915→        }
+   916→    }
+   917→}
+   918→
+   919→fn remote_ref_state_to_proto(state: RemoteRefState) -> i32 {
+   920→    let proto_state = match state {
+   921→        RemoteRefState::New => crate::protos::simple_op_store::RemoteRefState::New,
+   922→        RemoteRefState::Tracked => crate::protos::simple_op_store::RemoteRefState::Tracked,
+   923→    };
+   924→    proto_state as i32
+   925→}
+   926→
+   927→fn remote_ref_state_from_proto(proto_value: i32) -> Result<RemoteRefState, PostDecodeError> {
+   928→    let proto_state = proto_value
+   929→        .try_into()
+   930→        .map_err(|prost::UnknownEnumValue(n)| PostDecodeError::InvalidRemoteRefStateValue(n))?;
+   931→    let state = match proto_state {
+   932→        crate::protos::simple_op_store::RemoteRefState::New => RemoteRefState::New,
+   933→        crate::protos::simple_op_store::RemoteRefState::Tracked => RemoteRefState::Tracked,
+   934→    };
+   935→    Ok(state)
+   936→}
+   937→
+   938→#[cfg(test)]
+   939→mod tests {
+   940→    use insta::assert_snapshot;
+   941→    use itertools::Itertools as _;
+   942→    use maplit::btreemap;
+   943→    use maplit::hashmap;
+   944→    use maplit::hashset;
+   945→
+   946→    use super::*;
+   947→    use crate::hex_util;
+   948→    use crate::tests::new_temp_dir;
+   949→
+   950→    fn create_view() -> View {
+   951→        let new_remote_ref = |target: &RefTarget| RemoteRef {
+   952→            target: target.clone(),
+   953→            state: RemoteRefState::New,
+   954→        };
+   955→        let tracked_remote_ref = |target: &RefTarget| RemoteRef {
+   956→            target: target.clone(),
+   957→            state: RemoteRefState::Tracked,
+   958→        };
+   959→        let head_id1 = CommitId::from_hex("aaa111");
+   960→        let head_id2 = CommitId::from_hex("aaa222");
+   961→        let bookmark_main_local_target = RefTarget::normal(CommitId::from_hex("ccc111"));
+   962→        let bookmark_main_origin_target = RefTarget::normal(CommitId::from_hex("ccc222"));
+   963→        let bookmark_deleted_origin_target = RefTarget::normal(CommitId::from_hex("ccc333"));
+   964→        let tag_v1_local_target = RefTarget::normal(CommitId::from_hex("ddd111"));
+   965→        let tag_v1_origin_target = RefTarget::normal(CommitId::from_hex("ddd222"));
+   966→        let tag_deleted_origin_target = RefTarget::normal(CommitId::from_hex("ddd333"));
+   967→        let git_refs_main_target = RefTarget::normal(CommitId::from_hex("fff111"));
+   968→        let git_refs_feature_target = RefTarget::from_legacy_form(
+   969→            [CommitId::from_hex("fff111")],
+   970→            [CommitId::from_hex("fff222"), CommitId::from_hex("fff333")],
+   971→        );
+   972→        let default_wc_commit_id = CommitId::from_hex("abc111");
+   973→        let test_wc_commit_id = CommitId::from_hex("abc222");
+   974→        View {
+   975→            head_ids: hashset! {head_id1, head_id2},
+   976→            local_bookmarks: btreemap! {
+   977→                "main".into() => bookmark_main_local_target,
+   978→            },
+   979→            local_tags: btreemap! {
+   980→                "v1.0".into() => tag_v1_local_target,
+   981→            },
+   982→            remote_views: btreemap! {
+   983→                "origin".into() => RemoteView {
+   984→                    bookmarks: btreemap! {
+   985→                        "main".into() => tracked_remote_ref(&bookmark_main_origin_target),
+   986→                        "deleted".into() => new_remote_ref(&bookmark_deleted_origin_target),
+   987→                    },
+   988→                    tags: btreemap! {
+   989→                        "v1.0".into() => tracked_remote_ref(&tag_v1_origin_target),
+   990→                        "deleted".into() => new_remote_ref(&tag_deleted_origin_target),
+   991→                    },
+   992→                },
+   993→            },
+   994→            git_refs: btreemap! {
+   995→                "refs/heads/main".into() => git_refs_main_target,
+   996→                "refs/heads/feature".into() => git_refs_feature_target,
+   997→            },
+   998→            git_head: RefTarget::normal(CommitId::from_hex("fff111")),
+   999→            wc_commit_ids: btreemap! {
+  1000→                WorkspaceName::DEFAULT.to_owned() => default_wc_commit_id,
+  1001→                "test".into() => test_wc_commit_id,
+  1002→            },
+  1003→        }
+  1004→    }
+  1005→
+  1006→    fn create_operation() -> Operation {
+  1007→        let pad_id_bytes = |hex: &str, len: usize| {
+  1008→            let mut bytes = hex_util::decode_hex(hex).unwrap();
+  1009→            bytes.resize(len, b'\0');
+  1010→            bytes
+  1011→        };
+  1012→        Operation {
+  1013→            view_id: ViewId::new(pad_id_bytes("aaa111", VIEW_ID_LENGTH)),
+  1014→            parents: vec![
+  1015→                OperationId::new(pad_id_bytes("bbb111", OPERATION_ID_LENGTH)),
+  1016→                OperationId::new(pad_id_bytes("bbb222", OPERATION_ID_LENGTH)),
+  1017→            ],
+  1018→            metadata: OperationMetadata {
+  1019→                time: TimestampRange {
+  1020→                    start: Timestamp {
+  1021→                        timestamp: MillisSinceEpoch(123456789),
+  1022→                        tz_offset: 3600,
+  1023→                    },
+  1024→                    end: Timestamp {
+  1025→                        timestamp: MillisSinceEpoch(123456800),
+  1026→                        tz_offset: 3600,
+  1027→                    },
+  1028→                },
+  1029→                description: "check out foo".to_string(),
+  1030→                hostname: "some.host.example.com".to_string(),
+  1031→                username: "someone".to_string(),
+  1032→                is_snapshot: false,
+  1033→                tags: hashmap! {
+  1034→                    "key1".to_string() => "value1".to_string(),
+  1035→                    "key2".to_string() => "value2".to_string(),
+  1036→                },
+  1037→            },
+  1038→            commit_predecessors: Some(btreemap! {
+  1039→                CommitId::from_hex("111111") => vec![],
+  1040→                CommitId::from_hex("222222") => vec![
+  1041→                    CommitId::from_hex("333333"),
+  1042→                    CommitId::from_hex("444444"),
+  1043→                ],
+  1044→            }),
+  1045→        }
+  1046→    }
+  1047→
+  1048→    #[test]
+  1049→    fn test_hash_view() {
+  1050→        // Test exact output so we detect regressions in compatibility
+  1051→        assert_snapshot!(
+  1052→            ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
+  1053→            @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
+  1054→        );
+  1055→    }
+  1056→
+  1057→    #[test]
+  1058→    fn test_hash_operation() {
+  1059→        // Test exact output so we detect regressions in compatibility
+  1060→        assert_snapshot!(
+  1061→            OperationId::new(blake2b_hash(&create_operation()).to_vec()).hex(),
+  1062→            @"b544c80b5ededdd64d0f10468fa636a06b83c45d94dd9bdac95319f7fe11fee536506c5c110681dee6233e69db7647683e732939a3ec88e867250efd765fea18"
+  1063→        );
+  1064→    }
+  1065→
+  1066→    #[test]
+  1067→    fn test_read_write_view() {
+  1068→        let temp_dir = new_temp_dir();
+  1069→        let root_data = RootOperationData {
+  1070→            root_commit_id: CommitId::from_hex("000000"),
+  1071→        };
+  1072→        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
+  1073→        let view = create_view();
+  1074→        let view_id = store.write_view(&view).block_on().unwrap();
+  1075→        let read_view = store.read_view(&view_id).block_on().unwrap();
+  1076→        assert_eq!(read_view, view);
+  1077→    }
+  1078→
+  1079→    #[test]
+  1080→    fn test_read_write_operation() {
+  1081→        let temp_dir = new_temp_dir();
+  1082→        let root_data = RootOperationData {
+  1083→            root_commit_id: CommitId::from_hex("000000"),
+  1084→        };
+  1085→        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
+  1086→        let operation = create_operation();
+  1087→        let op_id = store.write_operation(&operation).block_on().unwrap();
+  1088→        let read_operation = store.read_operation(&op_id).block_on().unwrap();
+  1089→        assert_eq!(read_operation, operation);
+  1090→    }
+  1091→
+  1092→    #[test]
+  1093→    fn test_remote_views_legacy_roundtrip() {
+  1094→        let mut view = create_view();
+  1095→        assert!(!view.remote_views.is_empty());
+  1096→        for remote_view in view.remote_views.values_mut() {
+  1097→            // remote tags cannot be preserved in "legacy" format
+  1098→            remote_view.tags.clear();
+  1099→        }
+  1100→        let mut proto = view_to_proto(&view);
+  1101→        proto.remote_views.clear(); // drop "new" format
+  1102→        let view_reconstructed = view_from_proto(proto).unwrap();
+  1103→        assert_eq!(view.remote_views, view_reconstructed.remote_views);
+  1104→    }
+  1105→
+  1106→    #[test]
+  1107→    fn test_remote_views_new_roundtrip() {
+  1108→        let view = create_view();
+  1109→        assert!(!view.remote_views.is_empty());
+  1110→        let mut proto = view_to_proto(&view);
+  1111→        for bookmark in &mut proto.bookmarks {
+  1112→            #[expect(deprecated)]
+  1113→            bookmark.remote_bookmarks.clear(); // drop "legacy" format
+  1114→        }
+  1115→        let view_reconstructed = view_from_proto(proto).unwrap();
+  1116→        assert_eq!(view.remote_views, view_reconstructed.remote_views);
+  1117→    }
+  1118→
+  1119→    #[test]
+  1120→    fn test_migrate_git_refs_to_remote_tags() {
+  1121→        let tracked_remote_ref = |target: &RefTarget| RemoteRef {
+  1122→            target: target.clone(),
+  1123→            state: RemoteRefState::Tracked,
+  1124→        };
+  1125→        let git_ref_to_proto = |name: &str, ref_target| crate::protos::simple_op_store::GitRef {
+  1126→            name: name.to_owned(),
+  1127→            #[expect(deprecated)]
+  1128→            commit_id: Default::default(),
+  1129→            target: ref_target_to_proto(ref_target),
+  1130→        };
+  1131→        let v1_target = RefTarget::normal(CommitId::from_hex("111111"));
+  1132→        let main_target = RefTarget::normal(CommitId::from_hex("222222"));
+  1133→        let orig_remote_views = btreemap! {
+  1134→            "git".into() => RemoteView {
+  1135→                bookmarks: btreemap! {
+  1136→                    "main".into() => tracked_remote_ref(&main_target),
+  1137→                },
+  1138→                tags: btreemap! {},
+  1139→            },
+  1140→        };
+  1141→        let proto = crate::protos::simple_op_store::View {
+  1142→            remote_views: remote_views_to_proto(&orig_remote_views),
+  1143→            git_refs: vec![
+  1144→                git_ref_to_proto("refs/tags/v1.0", &v1_target),
+  1145→                git_ref_to_proto("refs/heads/main", &main_target),
+  1146→            ],
+  1147→            has_git_refs_migrated_to_remote_tags: false,
+  1148→            ..Default::default()
+  1149→        };
+  1150→
+  1151→        let view = view_from_proto(proto).unwrap();
+  1152→        if cfg!(feature = "git") {
+  1153→            assert_eq!(
+  1154→                view.remote_views,
+  1155→                btreemap! {
+  1156→                    "git".into() => RemoteView {
+  1157→                        bookmarks: btreemap! {
+  1158→                            "main".into() => tracked_remote_ref(&main_target),
+  1159→                        },
+  1160→                        tags: btreemap! {
+  1161→                            "v1.0".into() => tracked_remote_ref(&v1_target),
+  1162→                        },
+  1163→                    },
+  1164→                }
+  1165→            );
+  1166→        } else {
+  1167→            assert_eq!(view.remote_views, orig_remote_views);
+  1168→        }
+  1169→
+  1170→        // Once migrated, "git" remote tags shouldn't be populated again.
+  1171→        let mut proto = view_to_proto(&view);
+  1172→        assert!(proto.has_git_refs_migrated_to_remote_tags);
+  1173→        for view_proto in &mut proto.remote_views {
+  1174→            view_proto.tags.clear();
+  1175→        }
+  1176→        let view = view_from_proto(proto).unwrap();
+  1177→        assert_eq!(view.remote_views, orig_remote_views);
+  1178→    }
+  1179→
+  1180→    #[test]
+  1181→    fn test_bookmark_views_legacy_roundtrip() {
+  1182→        let new_remote_ref = |target: &RefTarget| RemoteRef {
+  1183→            target: target.clone(),
+  1184→            state: RemoteRefState::New,
+  1185→        };
+  1186→        let tracked_remote_ref = |target: &RefTarget| RemoteRef {
+  1187→            target: target.clone(),
+  1188→            state: RemoteRefState::Tracked,
+  1189→        };
+  1190→        let local_bookmark1_target = RefTarget::normal(CommitId::from_hex("111111"));
+  1191→        let local_bookmark3_target = RefTarget::normal(CommitId::from_hex("222222"));
+  1192→        let git_bookmark1_target = RefTarget::normal(CommitId::from_hex("333333"));
+  1193→        let remote1_bookmark1_target = RefTarget::normal(CommitId::from_hex("444444"));
+  1194→        let remote2_bookmark2_target = RefTarget::normal(CommitId::from_hex("555555"));
+  1195→        let remote2_bookmark4_target = RefTarget::normal(CommitId::from_hex("666666"));
+  1196→        let local_bookmarks = btreemap! {
+  1197→            "bookmark1".into() => local_bookmark1_target.clone(),
+  1198→            "bookmark3".into() => local_bookmark3_target.clone(),
+  1199→        };
+  1200→        let remote_views = btreemap! {
+  1201→            "git".into() => RemoteView {
+  1202→                bookmarks: btreemap! {
+  1203→                    "bookmark1".into() => tracked_remote_ref(&git_bookmark1_target),
+  1204→                },
+  1205→                tags: btreemap! {},
+  1206→            },
+  1207→            "remote1".into() => RemoteView {
+  1208→                bookmarks: btreemap! {
+  1209→                    "bookmark1".into() => tracked_remote_ref(&remote1_bookmark1_target),
+  1210→                },
+  1211→                tags: btreemap! {},
+  1212→            },
+  1213→            "remote2".into() => RemoteView {
+  1214→                bookmarks: btreemap! {
+  1215→                    // "bookmark2" is non-tracking. "bookmark4" is tracking, but locally deleted.
+  1216→                    "bookmark2".into() => new_remote_ref(&remote2_bookmark2_target),
+  1217→                    "bookmark4".into() => tracked_remote_ref(&remote2_bookmark4_target),
+  1218→                },
+  1219→                tags: btreemap! {},
+  1220→            },
+  1221→        };
+  1222→
+  1223→        let bookmarks_legacy = bookmark_views_to_proto_legacy(&local_bookmarks, &remote_views);
+  1224→        assert_eq!(
+  1225→            bookmarks_legacy
+  1226→                .iter()
+  1227→                .map(|proto| &proto.name)
+  1228→                .sorted()
+  1229→                .collect_vec(),
+  1230→            vec!["bookmark1", "bookmark2", "bookmark3", "bookmark4"],
+  1231→        );
+  1232→
+  1233→        let (local_bookmarks_reconstructed, remote_views_reconstructed) =
+  1234→            bookmark_views_from_proto_legacy(bookmarks_legacy).unwrap();
+  1235→        assert_eq!(local_bookmarks_reconstructed, local_bookmarks);
+  1236→        assert_eq!(remote_views_reconstructed, remote_views);
+  1237→    }
+  1238→
+  1239→    #[test]
+  1240→    fn test_ref_target_change_delete_order_roundtrip() {
+  1241→        let target = RefTarget::from_merge(Merge::from_removes_adds(
+  1242→            vec![Some(CommitId::from_hex("111111"))],
+  1243→            vec![Some(CommitId::from_hex("222222")), None],
+  1244→        ));
+  1245→        let maybe_proto = ref_target_to_proto(&target);
+  1246→        assert_eq!(ref_target_from_proto(maybe_proto), target);
+  1247→
+  1248→        // If it were legacy format, order of None entry would be lost.
+  1249→        let target = RefTarget::from_merge(Merge::from_removes_adds(
+  1250→            vec![Some(CommitId::from_hex("111111"))],
+  1251→            vec![None, Some(CommitId::from_hex("222222"))],
+  1252→        ));
+  1253→        let maybe_proto = ref_target_to_proto(&target);
+  1254→        assert_eq!(ref_target_from_proto(maybe_proto), target);
+  1255→    }
+  1256→
+  1257→    #[test]
+  1258→    fn test_ref_target_legacy_roundtrip() {
+  1259→        let target = RefTarget::absent();
+  1260→        let maybe_proto = ref_target_to_proto_legacy(&target);
+  1261→        assert_eq!(ref_target_from_proto(maybe_proto), target);
+  1262→
+  1263→        let target = RefTarget::normal(CommitId::from_hex("111111"));
+  1264→        let maybe_proto = ref_target_to_proto_legacy(&target);
+  1265→        assert_eq!(ref_target_from_proto(maybe_proto), target);
+  1266→
+  1267→        // N-way conflict
+  1268→        let target = RefTarget::from_legacy_form(
+  1269→            [CommitId::from_hex("111111"), CommitId::from_hex("222222")],
+  1270→            [
+  1271→                CommitId::from_hex("333333"),
+  1272→                CommitId::from_hex("444444"),
+  1273→                CommitId::from_hex("555555"),
+  1274→            ],
+  1275→        );
+  1276→        let maybe_proto = ref_target_to_proto_legacy(&target);
+  1277→        assert_eq!(ref_target_from_proto(maybe_proto), target);
+  1278→
+  1279→        // Change-delete conflict
+  1280→        let target = RefTarget::from_legacy_form(
+  1281→            [CommitId::from_hex("111111")],
+  1282→            [CommitId::from_hex("222222")],
+  1283→        );
+  1284→        let maybe_proto = ref_target_to_proto_legacy(&target);
+  1285→        assert_eq!(ref_target_from_proto(maybe_proto), target);
+  1286→    }
+  1287→}
+  1288→

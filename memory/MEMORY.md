@@ -18,6 +18,7 @@
 - [No --allow-new flag for jj git push](feedback_jj_no_allow_new.md)
 - [No text output after finalize — trailing writes miss squash window](feedback_no_finalize_echo.md)
 - [Ask for clarification on ambiguous input instead of spinning](feedback_ask_on_ambiguity.md)
+- ["finalize steps" triggers full session-end workflow](feedback_finalize_steps.md)
 
 ## Lessons Learned
 
