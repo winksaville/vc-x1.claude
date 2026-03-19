@@ -19,6 +19,8 @@
 - [No text output after finalize — trailing writes miss squash window](feedback_no_finalize_echo.md)
 - [Ask for clarification on ambiguous input instead of spinning](feedback_ask_on_ambiguity.md)
 - ["finalize steps" triggers full session-end workflow](feedback_finalize_steps.md)
+- [Use relative paths in commands for brevity](feedback_relative_paths.md)
+- [Use -L for ochid retrieval — clean parseable output](feedback_use_no_label.md)
 
 ## Lessons Learned
 
