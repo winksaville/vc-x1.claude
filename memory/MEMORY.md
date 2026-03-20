@@ -22,6 +22,7 @@
 - [Use relative paths in commands for brevity](feedback_relative_paths.md)
 - [Use -L for ochid retrieval — clean parseable output](feedback_use_no_label.md)
 
+
 ## Lessons Learned
 
 - **Avoid duplicate commits in .claude repo**: Committing the bot session repo multiple times in one session can create duplicate-titled commits with other session commits interleaved, making squashing non-trivial. Prefer a single commit to .claude at session end.
