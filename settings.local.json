@@ -19,7 +19,8 @@
       "Bash(cargo install:*)",
       "Bash(vc-x1 chid:*)",
       "Bash(vc-x1:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(complete -p jj)"
     ]
   }
 }
