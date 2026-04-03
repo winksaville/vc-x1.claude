@@ -20,7 +20,9 @@
       "Bash(vc-x1 chid:*)",
       "Bash(vc-x1:*)",
       "Bash(ls:*)",
-      "Bash(complete -p jj)"
+      "Bash(complete -p jj)",
+      "Bash(gh repo:*)",
+      "Bash(gh api:*)"
     ]
   }
 }
