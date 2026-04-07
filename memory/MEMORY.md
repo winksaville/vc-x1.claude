@@ -35,3 +35,4 @@
 - notes/todo.md — near-term task tracking
 - notes/chores-01.md — chore details and reference links
 - CLAUDE.md — dual repo commit/push workflow
+- [User profile](user_profile.md) — Wink Saville, long-time collaborator on vc-x1 from inception
