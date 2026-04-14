@@ -15,7 +15,11 @@
       "Bash(cargo install:*)",
       "Bash(ls /home/wink/data/prgs/rust/vc-x1/notes/chores-*.md)",
       "Bash(vc-x1 chid:*)",
-      "Bash(vc-x1 finalize:*)"
+      "Bash(vc-x1 finalize:*)",
+      "WebFetch(domain:docs.kernel.org)",
+      "Bash(ls:*)",
+      "Bash(vc-x1 --version)",
+      "Bash(vc-x1 list:*)"
     ]
   }
 }

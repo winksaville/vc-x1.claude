@@ -21,6 +21,7 @@
 - ["finalize steps" triggers full session-end workflow](feedback_finalize_steps.md)
 - [Use relative paths in commands for brevity](feedback_relative_paths.md)
 - [Use -L for ochid retrieval — clean parseable output](feedback_use_no_label.md)
+- [Step-by-step approval for commit/push/finalize](feedback_step_by_step_approval.md) — no batching when something deviates
 
 
 ## Lessons Learned
