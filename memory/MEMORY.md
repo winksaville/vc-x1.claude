@@ -22,6 +22,7 @@
 - [Use relative paths in commands for brevity](feedback_relative_paths.md)
 - [Use -L for ochid retrieval — clean parseable output](feedback_use_no_label.md)
 - [Step-by-step approval for commit/push/finalize](feedback_step_by_step_approval.md) — no batching when something deviates
+- [Add doc comments on every fn/method](feedback_doc_every_fn.md) — matches existing vc-x1 style; overrides CLAUDE.md "no comments" default
 
 
 ## Lessons Learned
