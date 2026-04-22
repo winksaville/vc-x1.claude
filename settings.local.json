@@ -20,7 +20,8 @@
       "Bash(ls:*)",
       "Bash(vc-x1 --version)",
       "Bash(vc-x1 list:*)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(vc-x1 push *)"
     ]
   }
 }
