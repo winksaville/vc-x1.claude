@@ -23,7 +23,8 @@
       "Bash(echo \"exit=$?\")",
       "Bash(vc-x1 push *)",
       "Bash(cargo check *)",
-      "Bash(cargo build *)"
+      "Bash(cargo build *)",
+      "Bash(awk 'NR>=1468' src/init.rs)"
     ]
   }
 }
