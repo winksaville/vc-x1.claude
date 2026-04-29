@@ -22,7 +22,8 @@
       "Bash(vc-x1 list:*)",
       "Bash(echo \"exit=$?\")",
       "Bash(vc-x1 push *)",
-      "Bash(cargo check *)"
+      "Bash(cargo check *)",
+      "Bash(cargo build *)"
     ]
   }
 }
