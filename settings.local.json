@@ -25,7 +25,9 @@
       "Bash(cargo check *)",
       "Bash(cargo build *)",
       "Bash(awk 'NR>=1468' src/init.rs)",
-      "Bash(grep -n \"fn por_fixture_main_tracks_origin\\\\|^}$\" src/init.rs)"
+      "Bash(grep -n \"fn por_fixture_main_tracks_origin\\\\|^}$\" src/init.rs)",
+      "Bash(bash notes/substep-test.sh)",
+      "Bash(echo \"exit:$?\")"
     ]
   }
 }
