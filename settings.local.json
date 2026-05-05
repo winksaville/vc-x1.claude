@@ -28,7 +28,8 @@
       "Bash(grep -n \"fn por_fixture_main_tracks_origin\\\\|^}$\" src/init.rs)",
       "Bash(bash notes/substep-test.sh)",
       "Bash(echo \"exit:$?\")",
-      "WebFetch(domain:claude.ai)"
+      "WebFetch(domain:claude.ai)",
+      "Bash(vc-x1 *)"
     ]
   }
 }
