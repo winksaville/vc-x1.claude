@@ -29,7 +29,9 @@
       "Bash(bash notes/substep-test.sh)",
       "Bash(echo \"exit:$?\")",
       "WebFetch(domain:claude.ai)",
-      "Bash(vc-x1 *)"
+      "Bash(vc-x1 *)",
+      "Bash(awk NR>=599 && NR<=640 *)",
+      "Bash(awk '/^ *)"
     ]
   }
 }
