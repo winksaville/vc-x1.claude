@@ -34,7 +34,8 @@
       "Bash(awk '/^ *)",
       "Bash(sed -n '1483,1486p' src/push.rs)",
       "Bash(sed -n '1905,1911p' src/push.rs)",
-      "Bash(awk NR==1482{print \"blank?\", length\\($0\\)} NR==1906{print \"close-tests:\", $0} NR==1907{print \"blank?\", length\\($0\\)} NR==2267{print \"close-int:\", $0} *)"
+      "Bash(awk NR==1482{print \"blank?\", length\\($0\\)} NR==1906{print \"close-tests:\", $0} NR==1907{print \"blank?\", length\\($0\\)} NR==2267{print \"close-int:\", $0} *)",
+      "Bash(awk NR==604||NR==605||NR==606{print NR\":\"$0} NR>=748 && NR<=755{print NR\":\"$0} NR==1205||NR==1206{print NR\":\"$0} *)"
     ]
   }
 }
