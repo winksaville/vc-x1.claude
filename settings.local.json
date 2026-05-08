@@ -31,7 +31,10 @@
       "WebFetch(domain:claude.ai)",
       "Bash(vc-x1 *)",
       "Bash(awk NR>=599 && NR<=640 *)",
-      "Bash(awk '/^ *)"
+      "Bash(awk '/^ *)",
+      "Bash(sed -n '1483,1486p' src/push.rs)",
+      "Bash(sed -n '1905,1911p' src/push.rs)",
+      "Bash(awk NR==1482{print \"blank?\", length\\($0\\)} NR==1906{print \"close-tests:\", $0} NR==1907{print \"blank?\", length\\($0\\)} NR==2267{print \"close-int:\", $0} *)"
     ]
   }
 }
