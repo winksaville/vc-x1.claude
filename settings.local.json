@@ -38,7 +38,8 @@
       "Bash(awk NR==604||NR==605||NR==606{print NR\":\"$0} NR>=748 && NR<=755{print NR\":\"$0} NR==1205||NR==1206{print NR\":\"$0} *)",
       "Bash(awk NR==713||NR==714||NR==715||NR==716{print NR\":\"$0} NR==1098||NR==1099{print NR\":\"$0} *)",
       "Bash(grep *)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(git -C . log --oneline -1 origin/main)"
     ]
   }
 }
