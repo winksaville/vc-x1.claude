@@ -41,7 +41,10 @@
       "Bash(echo \"exit: $?\")",
       "Bash(git -C . log --oneline -1 origin/main)",
       "Bash(echo \"exit:$? \\(1=no matches=good\\)\")",
-      "Bash(sed -n '585,590p;620,635p' src/push.rs)"
+      "Bash(sed -n '585,590p;620,635p' src/push.rs)",
+      "Bash(python3 -)",
+      "Bash(sed -n '1,20p' notes/todo.md)",
+      "Bash(sed -n '/^## Done/,/^# References/p' notes/todo.md)"
     ]
   }
 }
