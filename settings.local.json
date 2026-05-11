@@ -39,7 +39,9 @@
       "Bash(awk NR==713||NR==714||NR==715||NR==716{print NR\":\"$0} NR==1098||NR==1099{print NR\":\"$0} *)",
       "Bash(grep *)",
       "Bash(echo \"exit: $?\")",
-      "Bash(git -C . log --oneline -1 origin/main)"
+      "Bash(git -C . log --oneline -1 origin/main)",
+      "Bash(echo \"exit:$? \\(1=no matches=good\\)\")",
+      "Bash(sed -n '585,590p;620,635p' src/push.rs)"
     ]
   }
 }
