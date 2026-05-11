@@ -44,7 +44,9 @@
       "Bash(sed -n '585,590p;620,635p' src/push.rs)",
       "Bash(python3 -)",
       "Bash(sed -n '1,20p' notes/todo.md)",
-      "Bash(sed -n '/^## Done/,/^# References/p' notes/todo.md)"
+      "Bash(sed -n '/^## Done/,/^# References/p' notes/todo.md)",
+      "Bash(awk 'NR>=970' notes/chores-09.md)",
+      "Bash(awk *)"
     ]
   }
 }
