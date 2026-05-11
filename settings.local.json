@@ -48,7 +48,10 @@
       "Bash(awk 'NR>=970' notes/chores-09.md)",
       "Bash(awk *)",
       "Bash(python3 *)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(sort -k2 -n)",
+      "Bash(sed -n '/^## docs: chores-09 → new shape/,/^# References$/p' notes/chores-09.md)",
+      "Bash(sed -n '/^# References$/,$p' notes/chores-09.md)"
     ]
   }
 }
