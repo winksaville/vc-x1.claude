@@ -51,7 +51,10 @@
       "Bash(xxd)",
       "Bash(sort -k2 -n)",
       "Bash(sed -n '/^## docs: chores-09 → new shape/,/^# References$/p' notes/chores-09.md)",
-      "Bash(sed -n '/^# References$/,$p' notes/chores-09.md)"
+      "Bash(sed -n '/^# References$/,$p' notes/chores-09.md)",
+      "Bash(echo \"\\(exit $?\\)\")",
+      "Bash(sed -n '51,84p' notes/chores-06.md)",
+      "Bash(sed -n '1305,1500p' notes/chores-06.md)"
     ]
   }
 }
