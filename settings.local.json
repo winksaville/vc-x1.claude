@@ -55,7 +55,9 @@
       "Bash(echo \"\\(exit $?\\)\")",
       "Bash(sed -n '51,84p' notes/chores-06.md)",
       "Bash(sed -n '1305,1500p' notes/chores-06.md)",
-      "Bash(echo \"=== exit $? \\(1 = no matches expected outside frozen/intentional\\) ===\")"
+      "Bash(echo \"=== exit $? \\(1 = no matches expected outside frozen/intentional\\) ===\")",
+      "Bash(sed -n '405,475p' src/common.rs)",
+      "Bash(sed -n '605,690p' src/common.rs)"
     ]
   }
 }
