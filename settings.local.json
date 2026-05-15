@@ -58,7 +58,10 @@
       "Bash(echo \"=== exit $? \\(1 = no matches expected outside frozen/intentional\\) ===\")",
       "Bash(sed -n '405,475p' src/common.rs)",
       "Bash(sed -n '605,690p' src/common.rs)",
-      "Bash(cargo doc *)"
+      "Bash(cargo doc *)",
+      "Bash(xargs sed -i 's|notes/chores-|notes/chores/chores-|g')",
+      "Bash(sed -i 's|\\(\\\\.\\\\./ARCHITECTURE\\\\.md|\\(../../ARCHITECTURE.md|g; s|\\(\\\\.\\\\./src/|\\(../../src/|g; s|\\(README\\\\.md|\\(../README.md|g; s|\\(forks-multi-user\\\\.md|\\(../forks-multi-user.md|g; s|\\(vc-x1-init\\\\.md|\\(../vc-x1-init.md|g; s|\\(cargo-locked-issue\\\\.md|\\(../cargo-locked-issue.md|g' chores-*.md)",
+      "Bash(sed -i 's|^\\\\[1\\\\]: forks-multi-user\\\\.md|[1]: ../forks-multi-user.md|' chores-08.md)"
     ]
   }
 }
