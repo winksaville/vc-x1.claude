@@ -66,7 +66,9 @@
       "Bash(git -C . log --oneline -5 --format='%H %s')",
       "Bash(sed -n '10,25p' notes/todo.md)",
       "Bash(sed -n '305,315p' notes/todo.md)",
-      "Bash(sed -n '340,350p' notes/todo.md)"
+      "Bash(sed -n '340,350p' notes/todo.md)",
+      "Bash(git symbolic-ref *)",
+      "Bash(bash *)"
     ]
   }
 }
