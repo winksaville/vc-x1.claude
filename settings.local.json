@@ -63,7 +63,10 @@
       "Bash(sed -i 's|\\(\\\\.\\\\./ARCHITECTURE\\\\.md|\\(../../ARCHITECTURE.md|g; s|\\(\\\\.\\\\./src/|\\(../../src/|g; s|\\(README\\\\.md|\\(../README.md|g; s|\\(forks-multi-user\\\\.md|\\(../forks-multi-user.md|g; s|\\(vc-x1-init\\\\.md|\\(../vc-x1-init.md|g; s|\\(cargo-locked-issue\\\\.md|\\(../cargo-locked-issue.md|g' chores-*.md)",
       "Bash(sed -i 's|^\\\\[1\\\\]: forks-multi-user\\\\.md|[1]: ../forks-multi-user.md|' chores-08.md)",
       "Bash(git -C . remote -v)",
-      "Bash(git -C . log --oneline -5 --format='%H %s')"
+      "Bash(git -C . log --oneline -5 --format='%H %s')",
+      "Bash(sed -n '10,25p' notes/todo.md)",
+      "Bash(sed -n '305,315p' notes/todo.md)",
+      "Bash(sed -n '340,350p' notes/todo.md)"
     ]
   }
 }
