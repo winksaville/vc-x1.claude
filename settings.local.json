@@ -72,7 +72,9 @@
       "Bash(git ls-tree *)",
       "Bash(sed -n '4,12p' notes/chores/chores-12.md)",
       "Bash(sed -n '4,14p' notes/chores/chores-11.md)",
-      "Bash(sed -n '10,16p' notes/chores/chores-10.md)"
+      "Bash(sed -n '10,16p' notes/chores/chores-10.md)",
+      "Bash(./target/release/vc-x1 init *)",
+      "Bash(cargo run *)"
     ]
   }
 }
