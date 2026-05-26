@@ -69,7 +69,10 @@
       "Bash(sed -n '340,350p' notes/todo.md)",
       "Bash(git symbolic-ref *)",
       "Bash(bash *)",
-      "Bash(git ls-tree *)"
+      "Bash(git ls-tree *)",
+      "Bash(sed -n '4,12p' notes/chores/chores-12.md)",
+      "Bash(sed -n '4,14p' notes/chores/chores-11.md)",
+      "Bash(sed -n '10,16p' notes/chores/chores-10.md)"
     ]
   }
 }
