@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.jj-vcs.dev)",
+      "WebFetch(domain:crates.io)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:docs.kernel.org)",
+      "WebFetch(domain:claude.ai)",
+      "Read(//tmp/**)",
+      "Bash(jj *)",
+      "Bash(cargo *)",
+      "Bash(vc-x1 *)",
+      "Bash(./target/debug/vc-x1 *)",
+      "Bash(./target/release/vc-x1 *)",
+      "Bash(rustc *)",
+      "Bash(git symbolic-ref *)",
+      "Bash(mkdir *)",
+      "Bash(awk *)"
+    ]
+  }
+}
