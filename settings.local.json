@@ -78,7 +78,8 @@
       "Bash(echo \"EXIT=$?\")",
       "Read(//tmp/**)",
       "Bash(git -C /home/wink/data/prgs/rust/vc-x1 status --short)",
-      "Bash(git -C /home/wink/data/prgs/rust/vc-x1 ls-files x.txt)"
+      "Bash(git -C /home/wink/data/prgs/rust/vc-x1 ls-files x.txt)",
+      "Bash(git *)"
     ]
   }
 }
