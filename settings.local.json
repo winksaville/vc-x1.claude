@@ -1,8 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(echo \"exit=$?\")",
-      "Bash(vc-x1-dev -V)"
+      "WebFetch(domain:index.crates.io)"
     ]
   }
 }
