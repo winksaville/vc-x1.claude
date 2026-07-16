@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:index.crates.io)"
+      "WebFetch(domain:index.crates.io)",
+      "Bash(bash support/gen-exmpl-1-3.sh)"
     ]
   }
 }
