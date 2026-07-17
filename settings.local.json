@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:index.crates.io)",
-      "Bash(bash support/gen-exmpl-1-3.sh)"
+      "Bash(bash support/gen-exmpl-1-3.sh)",
+      "Bash(curl -s 'https://crates.io/api/v1/crates?q=claude%20transcript&per_page=20')",
+      "Bash(curl -s -A 'vc-x1-research \\(wink@saville.com\\)' 'https://crates.io/api/v1/crates?q=claude+code+transcript&per_page=20')",
+      "Bash(curl -s 'https://raw.githubusercontent.com/deepakkumardewani/weavr/main/src/lib.rs')",
+      "Bash(curl -s 'https://raw.githubusercontent.com/deepakkumardewani/weavr/main/src/model/entry.rs')",
+      "Bash(python3 -)"
     ]
   }
 }
