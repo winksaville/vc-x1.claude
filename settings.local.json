@@ -7,7 +7,8 @@
       "Bash(curl -s -A 'vc-x1-research \\(wink@saville.com\\)' 'https://crates.io/api/v1/crates?q=claude+code+transcript&per_page=20')",
       "Bash(curl -s 'https://raw.githubusercontent.com/deepakkumardewani/weavr/main/src/lib.rs')",
       "Bash(curl -s 'https://raw.githubusercontent.com/deepakkumardewani/weavr/main/src/model/entry.rs')",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "WebFetch(domain:static.crates.io)"
     ]
   }
 }
