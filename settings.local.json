@@ -8,7 +8,8 @@
       "Bash(curl -s 'https://raw.githubusercontent.com/deepakkumardewani/weavr/main/src/lib.rs')",
       "Bash(curl -s 'https://raw.githubusercontent.com/deepakkumardewani/weavr/main/src/model/entry.rs')",
       "Bash(python3 -)",
-      "WebFetch(domain:static.crates.io)"
+      "WebFetch(domain:static.crates.io)",
+      "Bash(python3 -c \"import json;[json.loads\\(l\\) for l in open\\('notes/transcript-sample.jsonl'\\) if l.strip\\(\\)]; print\\('all 7 lines valid JSON'\\)\")"
     ]
   }
 }
