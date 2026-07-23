@@ -18,7 +18,8 @@
       "Bash(sed -i 's/scope=code,bot ⇒/scope=work,bot ⇒/g' src/init.rs)",
       "Bash(sed -i 's/`--scope` is keyword-only \\(`code|bot|code,bot|bot,code`\\)/`--scope` is keyword-only \\(`work|bot|work,bot|bot,work`\\)/; s/use `--scope=code\"/use `--scope=work\"/' src/common.rs)",
       "Bash(sed -i 's/`-R <ws> -s code,bot` composes/`-R <ws> -s work,bot` composes/' src/common/tests.rs)",
-      "Bash(sed -i 's/keywords were given in \\(`code,bot` vs `bot,code`\\)/keywords were given in \\(`work,bot` vs `bot,work`\\)/' src/options_flags/scope.rs)"
+      "Bash(sed -i 's/keywords were given in \\(`code,bot` vs `bot,code`\\)/keywords were given in \\(`work,bot` vs `bot,work`\\)/' src/options_flags/scope.rs)",
+      "Bash(git remote *)"
     ]
   }
 }
