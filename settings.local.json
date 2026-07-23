@@ -14,7 +14,11 @@
       "Bash(sed -i 's/let code = render_vc_config/let work = render_vc_config/g; s/let session = render_vc_config/let bot = render_vc_config/g' src/init/tests.rs)",
       "Bash(sed -i '203s/no `claude` peer/no `bot` peer/' src/test_helpers.rs)",
       "Bash(sed -i '274,288s/\\\\bclaude\\\\b/bot/g' src/common/tests.rs)",
-      "Bash(sed -i 's/expect\\(\"claude op id\"\\)/expect\\(\"bot op id\"\\)/g; s/\"load claude state\"/\"load bot state\"/g; s/\"state cleared on success \\(claude\\)\"/\"state cleared on success \\(bot\\)\"/; s/\"load claude sync state\"/\"load bot sync state\"/; s/\"claude state present after failure\"/\"bot state present after failure\"/; s/\"claude state = pre-sync op\"/\"bot state = pre-sync op\"/; s/\"claude state cleared by revert\"/\"bot state cleared by revert\"/' src/sync/integration_tests.rs)"
+      "Bash(sed -i 's/expect\\(\"claude op id\"\\)/expect\\(\"bot op id\"\\)/g; s/\"load claude state\"/\"load bot state\"/g; s/\"state cleared on success \\(claude\\)\"/\"state cleared on success \\(bot\\)\"/; s/\"load claude sync state\"/\"load bot sync state\"/; s/\"claude state present after failure\"/\"bot state present after failure\"/; s/\"claude state = pre-sync op\"/\"bot state = pre-sync op\"/; s/\"claude state cleared by revert\"/\"bot state cleared by revert\"/' src/sync/integration_tests.rs)",
+      "Bash(sed -i 's/scope=code,bot ⇒/scope=work,bot ⇒/g' src/init.rs)",
+      "Bash(sed -i 's/`--scope` is keyword-only \\(`code|bot|code,bot|bot,code`\\)/`--scope` is keyword-only \\(`work|bot|work,bot|bot,work`\\)/; s/use `--scope=code\"/use `--scope=work\"/' src/common.rs)",
+      "Bash(sed -i 's/`-R <ws> -s code,bot` composes/`-R <ws> -s work,bot` composes/' src/common/tests.rs)",
+      "Bash(sed -i 's/keywords were given in \\(`code,bot` vs `bot,code`\\)/keywords were given in \\(`work,bot` vs `bot,work`\\)/' src/options_flags/scope.rs)"
     ]
   }
 }
