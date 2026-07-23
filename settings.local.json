@@ -9,7 +9,12 @@
       "Bash(curl -s 'https://raw.githubusercontent.com/deepakkumardewani/weavr/main/src/model/entry.rs')",
       "Bash(python3 -)",
       "WebFetch(domain:static.crates.io)",
-      "Bash(python3 -c \"import json;[json.loads\\(l\\) for l in open\\('notes/transcript-sample.jsonl'\\) if l.strip\\(\\)]; print\\('all 7 lines valid JSON'\\)\")"
+      "Bash(python3 -c \"import json;[json.loads\\(l\\) for l in open\\('notes/transcript-sample.jsonl'\\) if l.strip\\(\\)]; print\\('all 7 lines valid JSON'\\)\")",
+      "Bash(perl -pi -e 's{/a/code}{/a/work}g; s{/tmp/code,}{/tmp/work,}g' src/init/tests.rs)",
+      "Bash(sed -i 's/let code = render_vc_config/let work = render_vc_config/g; s/let session = render_vc_config/let bot = render_vc_config/g' src/init/tests.rs)",
+      "Bash(sed -i '203s/no `claude` peer/no `bot` peer/' src/test_helpers.rs)",
+      "Bash(sed -i '274,288s/\\\\bclaude\\\\b/bot/g' src/common/tests.rs)",
+      "Bash(sed -i 's/expect\\(\"claude op id\"\\)/expect\\(\"bot op id\"\\)/g; s/\"load claude state\"/\"load bot state\"/g; s/\"state cleared on success \\(claude\\)\"/\"state cleared on success \\(bot\\)\"/; s/\"load claude sync state\"/\"load bot sync state\"/; s/\"claude state present after failure\"/\"bot state present after failure\"/; s/\"claude state = pre-sync op\"/\"bot state = pre-sync op\"/; s/\"claude state cleared by revert\"/\"bot state cleared by revert\"/' src/sync/integration_tests.rs)"
     ]
   }
 }
