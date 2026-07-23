@@ -21,7 +21,8 @@
       "Bash(sed -i 's/keywords were given in \\(`code,bot` vs `bot,code`\\)/keywords were given in \\(`work,bot` vs `bot,work`\\)/' src/options_flags/scope.rs)",
       "Bash(git remote *)",
       "Bash(sed -i 's/   - \\\\[\\\\[N\\\\]\\\\] 0.75.0-1 refactor: topology por equalization \\(current\\)/   - [[N]] 0.75.0-1 refactor: topology por equalization \\(done\\)/' TODO.md)",
-      "Bash(sed -i '3s/version = \"0.75.0-0\"/version = \"0.75.0-1\"/' Cargo.toml)"
+      "Bash(sed -i '3s/version = \"0.75.0-0\"/version = \"0.75.0-1\"/' Cargo.toml)",
+      "Bash(vc-x1-dev push *)"
     ]
   }
 }
