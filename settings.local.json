@@ -19,7 +19,9 @@
       "Bash(sed -i 's/`--scope` is keyword-only \\(`code|bot|code,bot|bot,code`\\)/`--scope` is keyword-only \\(`work|bot|work,bot|bot,work`\\)/; s/use `--scope=code\"/use `--scope=work\"/' src/common.rs)",
       "Bash(sed -i 's/`-R <ws> -s code,bot` composes/`-R <ws> -s work,bot` composes/' src/common/tests.rs)",
       "Bash(sed -i 's/keywords were given in \\(`code,bot` vs `bot,code`\\)/keywords were given in \\(`work,bot` vs `bot,work`\\)/' src/options_flags/scope.rs)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(sed -i 's/   - \\\\[\\\\[N\\\\]\\\\] 0.75.0-1 refactor: topology por equalization \\(current\\)/   - [[N]] 0.75.0-1 refactor: topology por equalization \\(done\\)/' TODO.md)",
+      "Bash(sed -i '3s/version = \"0.75.0-0\"/version = \"0.75.0-1\"/' Cargo.toml)"
     ]
   }
 }
