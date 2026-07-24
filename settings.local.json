@@ -22,7 +22,9 @@
       "Bash(git remote *)",
       "Bash(sed -i 's/   - \\\\[\\\\[N\\\\]\\\\] 0.75.0-1 refactor: topology por equalization \\(current\\)/   - [[N]] 0.75.0-1 refactor: topology por equalization \\(done\\)/' TODO.md)",
       "Bash(sed -i '3s/version = \"0.75.0-0\"/version = \"0.75.0-1\"/' Cargo.toml)",
-      "Bash(vc-x1-dev push *)"
+      "Bash(vc-x1-dev push *)",
+      "Bash(rm -rf tmp/legacy-clone-smoke/dst/legacy-ws)",
+      "Bash(vc-x1-dev clone *)"
     ]
   }
 }
