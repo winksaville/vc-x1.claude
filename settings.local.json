@@ -25,7 +25,9 @@
       "Bash(vc-x1-dev push *)",
       "Bash(rm -rf tmp/legacy-clone-smoke/dst/legacy-ws)",
       "Bash(vc-x1-dev clone *)",
-      "Bash(vc-x1-dev init *)"
+      "Bash(vc-x1-dev init *)",
+      "Bash(./target/debug/vc-x1-dev version *)",
+      "Bash(echo \"=== exit $? ===\")"
     ]
   }
 }
