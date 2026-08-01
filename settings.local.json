@@ -27,7 +27,9 @@
       "Bash(vc-x1-dev clone *)",
       "Bash(vc-x1-dev init *)",
       "Bash(./target/debug/vc-x1-dev version *)",
-      "Bash(echo \"=== exit $? ===\")"
+      "Bash(echo \"=== exit $? ===\")",
+      "Bash(env PATH=__TRACKED_VAR__/tmp/emptybin ./target/debug/vc-x1-dev --no-banner validate-todo TODO.md)",
+      "Bash(vc-x1-dev --no-banner validate-todo TODO.md)"
     ]
   }
 }
