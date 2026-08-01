@@ -29,7 +29,13 @@
       "Bash(./target/debug/vc-x1-dev version *)",
       "Bash(echo \"=== exit $? ===\")",
       "Bash(env PATH=__TRACKED_VAR__/tmp/emptybin ./target/debug/vc-x1-dev --no-banner validate-todo TODO.md)",
-      "Bash(vc-x1-dev --no-banner validate-todo TODO.md)"
+      "Bash(vc-x1-dev --no-banner validate-todo TODO.md)",
+      "Bash(sed -n '120,160p' ~/.cargo/registry/src/*/jj-lib-0.43.0/src/transaction.rs)",
+      "Bash(sed -n '3290,3380p' ~/.cargo/registry/src/*/jj-lib-0.43.0/src/git.rs)",
+      "Bash(sed -n '686,730p' ~/.cargo/registry/src/*/jj-lib-0.43.0/src/git_subprocess.rs)",
+      "Bash(sed -n '2983,3070p' ~/.cargo/registry/src/*/jj-lib-0.43.0/src/git.rs)",
+      "Bash(sed -n '518,566p' ~/.cargo/registry/src/*/jj-lib-0.43.0/src/git.rs)",
+      "Bash(sed -n '2693,2730p' ~/.cargo/registry/src/*/jj-lib-0.43.0/src/git.rs)"
     ]
   }
 }
