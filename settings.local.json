@@ -40,7 +40,10 @@
       "Bash(echo \"bugs=$?\")",
       "Bash(echo \"backlog=$?\")",
       "Bash(echo \"vt=$?\")",
-      "Bash(echo \"fix=$?\")"
+      "Bash(echo \"fix=$?\")",
+      "Bash(echo \"fmt=$?\")",
+      "Bash(echo \"clippy=$?\")",
+      "Bash(echo \"test=$?\")"
     ]
   }
 }
