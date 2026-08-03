@@ -43,7 +43,12 @@
       "Bash(echo \"fix=$?\")",
       "Bash(echo \"fmt=$?\")",
       "Bash(echo \"clippy=$?\")",
-      "Bash(echo \"test=$?\")"
+      "Bash(echo \"test=$?\")",
+      "Bash(cp /home/wink/data/prgs/rust/vc-x1-template/agents-protocol/AGENTS-vc-x1-f5-20260803-snapshot/agent-data/*.md /home/wink/data/prgs/rust/vc-x1/agent-data/)",
+      "Bash(diff -r /home/wink/data/prgs/rust/vc-x1-template/agents-protocol/AGENTS-vc-x1-f5-20260803-snapshot/agent-data agent-data)",
+      "Bash(diff /home/wink/data/prgs/rust/vc-x1-template/agents-protocol/AGENTS-vc-x1-f5-20260803-snapshot/AGENTS.md AGENTS.md)",
+      "Bash(echo \"pin set byte-identical, four files deleted\")",
+      "Bash(echo \"=== exit $? \\(differences above are the remaining filled sections, gone at 0.78.2\\)\")"
     ]
   }
 }
