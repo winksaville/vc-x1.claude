@@ -51,7 +51,9 @@
       "Bash(echo \"=== exit $? \\(differences above are the remaining filled sections, gone at 0.78.2\\)\")",
       "Bash(python3 *)",
       "Bash(git -C /home/wink/data/prgs/rust/vc-x1 show HEAD:src/squash_push.rs)",
-      "Bash(vc-x1-dev config *)"
+      "Bash(vc-x1-dev config *)",
+      "Read(//home/wink/data/prgs/rust/iiac-perf/agent-data/**)",
+      "Read(//home/wink/data/prgs/rust/iiac-perf/**)"
     ]
   }
 }
