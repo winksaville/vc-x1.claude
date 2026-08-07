@@ -53,7 +53,13 @@
       "Bash(git -C /home/wink/data/prgs/rust/vc-x1 show HEAD:src/squash_push.rs)",
       "Bash(vc-x1-dev config *)",
       "Read(//home/wink/data/prgs/rust/iiac-perf/agent-data/**)",
-      "Read(//home/wink/data/prgs/rust/iiac-perf/**)"
+      "Read(//home/wink/data/prgs/rust/iiac-perf/**)",
+      "Bash(git config *)",
+      "Bash(rm .claude/tmp-sandbox-write-probe)",
+      "Bash(echo \"removed exit=$?\")",
+      "Bash(git -C .claude ls-files -- agents commands hooks launch.json loop.md output-styles routines scheduled_tasks.json settings.json skills workflows)",
+      "Bash(echo \"exit=$? \\(empty output means none tracked\\)\")",
+      "Bash(echo \"stale refs check exit=$? \\(1 means none found\\)\")"
     ]
   }
 }
