@@ -60,7 +60,12 @@
       "Bash(git -C .claude ls-files -- agents commands hooks launch.json loop.md output-styles routines scheduled_tasks.json settings.json skills workflows)",
       "Bash(echo \"exit=$? \\(empty output means none tracked\\)\")",
       "Bash(echo \"stale refs check exit=$? \\(1 means none found\\)\")",
-      "Bash(./target/debug/vc-x1-dev config *)"
+      "Bash(./target/debug/vc-x1-dev config *)",
+      "Bash(echo \"rc=$?\")",
+      "Read(//home/wink/data/prgs/rust/vc-x1-template/work/agent-data/**)",
+      "Bash(echo \"rc\\(payload-vs-us\\)=$?\")",
+      "Read(//home/wink/data/prgs/rust/vc-x1-template/work/**)",
+      "Bash(echo \"rc\\(payload-vs-iiac\\)=$?\")"
     ]
   }
 }
