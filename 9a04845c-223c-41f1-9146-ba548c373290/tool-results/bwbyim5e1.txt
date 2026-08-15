@@ -1,0 +1,603 @@
+diff -ru agent-data/code.md /home/wink/data/prgs/rust/iiac-perf/agent-data/code.md
+--- agent-data/code.md	2026-08-09 11:53:08.395483122 -0700
++++ /home/wink/data/prgs/rust/iiac-perf/agent-data/code.md	2026-08-14 10:03:43.629334752 -0700
+@@ -22,7 +22,7 @@
+ [Prose form](prose.md#prose-form) shape (intro + bullets).
+ 
+ This is a deliberate override of the generic "write no comments" default that applies to
+-inline `//` comments. Doc comments on the module / item surface are expected; inline
++inline `//` comments. Doc comments on the module / item surface are expected, while inline
+ explanatory comments inside function bodies remain discouraged unless they capture a
+ non-obvious WHY.
+ 
+diff -ru agent-data/cycle-checklists.md /home/wink/data/prgs/rust/iiac-perf/agent-data/cycle-checklists.md
+--- agent-data/cycle-checklists.md	2026-08-14 15:18:09.145199211 -0700
++++ /home/wink/data/prgs/rust/iiac-perf/agent-data/cycle-checklists.md	2026-08-14 10:57:39.129694076 -0700
+@@ -13,9 +13,9 @@
+ 
+ Every change runs as a **cycle** with three phases: Preparation -> Work -> Close-out. The
+ phases always happen, but there are two styles. A **multi-step** cycle commits them
+-individually, as a ladder of steps (the Preparation commit is optional); a
++individually, as a ladder of steps (the Preparation commit is optional). A
+ **single-step** cycle folds all three into one commit when the change is straightforward, so
+-that one commit is the close-out and carries its duties, mandatory validation included. So a
++that one commit is the close-out and carries its duties. So a
+ single-step cycle is one commit, and a multi-step is minimum two (a Work commit plus the
+ close-out), typically three or more (the definition is
+ [AGENTS.md's Terminology](../AGENTS.md#terminology)). The
+@@ -29,7 +29,7 @@
+ A cycle runs on one topic bookmark in the work repo, created at the opening and named by the
+ cycle title's slug (the anchor algorithm in
+ [Markdown anchor links](notes.md#markdown-anchor-links)). `main` advances only when the
+-finished cycle lands on it; nothing pushes straight to `main`. The bot repo needs no bookmark:
++finished cycle lands on it, and nothing pushes straight to `main`. The bot repo needs no bookmark:
+ its `main` rides the tip of its linear narrative.
+ 
+ - **The bookmark is the unit of review.** Everything the cycle does is visible as one line
+@@ -56,19 +56,19 @@
+ 2. Move the picked-up item into `TODO.md > ## In Progress` and write the **six provisional
+    items** there, all six required. The title is a heading one level below `## In Progress`'s
+    own level, and the other five are headings one level below the title (a plain cycle: `###`
+-   title, `####` items; under a program heading, each one deeper):
++   title, `####` items, and under a program heading, each one deeper):
+    - **title**, which becomes the chores section header at close-out
+    - **problem statement**: what is wrong, a sentence or two
+    - **solution statement**: what will be done about it, broad
+    - **acceptance check**: the measure of "are you finished?"
+    - **ladder**: one rung per step, `- [[N]] [<title>][M]` plus `(current)` / `(done)`, with
+-     `[M]: #<slug>` in the file's `# References` (the closing rung, `<cycle title> closing`,
+-     unlinked until its gotchas subsection exists)
++     `[M]: #<slug>` in the file's `# References`. The closing rung, `<cycle title> closing`,
++     is linked like the rest
+    - **deliberation**: how the five above were decided (`_None._` when there was nothing to
+      deliberate)
+-   A `Ladder details` area follows the six: one subsection per rung, headed by the rung's
+-   exact title, opened at laddering with the rung's intent and completed as rungs land; the
+-   closing rung's is created at close-out only if gotchas occurred (see the protocol's
++   A `Ladder details` area follows the six: one subsection per rung, closing included, headed
++   by the rung's exact title, opened at laddering with the rung's intent and completed as rungs
++   land, the closing rung's at close-out (see the protocol's
+    [Preparation](cycle-protocol.md#preparation)).
+ 3. Sweep `## Done` per [Retiring Done entries](notes.md#retiring-done-entries), then bump the
+    version-of-record.
+@@ -106,9 +106,10 @@
+   `jj describe`, so hard rule 4 stays intact and the `ochid:` trailers ride along untouched
+   (they carry change ids, which survive a rewrite).
+ - **Then force-push the bookmark**, under the same approval as any other push.
+-- **Exceptions, where self-consistency is not worth its cost**: the bookmark has already landed;
+-  another branch is stacked on it, so the rewrite becomes someone else's rebase; or the ladder
+-  is long and only a trailing snapshot disagrees.
++- **Exceptions, where self-consistency is not worth its cost**:
++  - the bookmark has already landed
++  - another branch is stacked on it, so the rewrite becomes someone else's rebase
++  - the ladder is long and only a trailing snapshot disagrees
+ 
+ The squash-form ladder below never meets this, since nothing on it is pushed. The rule is for the
+ multi-commit shape, whose rungs publish one at a time. Full statement in the protocol's
+@@ -123,13 +124,13 @@
+ 2. Do the work. On any deviation from the agreed plan, or any question, stop and surface it.
+ 3. Flip `(current)` -> `(done)`, before validation and the commit, and complete the rung's
+    `Ladder details` subsection with the conceptual delta (its intent stub was opened when the
+-   rung was laddered; the ladder itself stays a bare ToC). See the protocol's
++   rung was laddered, and the ladder itself stays a bare ToC). See the protocol's
+    [Preparation](cycle-protocol.md#preparation).
+ 4. Bump the version-of-record to this commit's version (the suffix scheme is in
+    [versioning.md](versioning.md)). The opening checklist's bump already covers a Preparation
+    commit.
+-5. Validate the artifact (the medium-specific commands are in [custom.md](../custom.md)).
+-   Skip-able for notes-only commits, mandatory at close-out.
++5. Validate the artifact at every commit, doc-only ones included. The medium's commands are in
++   [custom.md](../custom.md).
+ 6. Stop and ask the user, "please review", as this is the bottom of the review loop. Do not present
+    a description as we iterate until the user reviews and says "continue|go|.." indicating the work
+    review is likely complete.
+@@ -142,7 +143,7 @@
+ 8. Show title + body and stop for review. This review covers the push only when the user's go
+    explicitly includes it.
+ 9. On the user's go: `vc-x1 push <bookmark> --title "..." --body "..."`. Never pre-commit with
+-   `jj commit`; never hand-write `ochid:` trailers.
++   `jj commit`. Never hand-write `ochid:` trailers.
+ 
+ ## Ladder (sub-cycle) checklist
+ 
+@@ -165,7 +166,7 @@
+   is not push approval. "Commit and push" names the destination, not a waiver of the reviews.
+   Only an explicit scoped delegation ("do all of X, don't check in") waives the stops, for that
+   bounded task only. Delegation waives stops, never flow (records, validation, the bookmark
+-  discipline; see the protocol's [Policy](cycle-protocol.md#policy)), and destructive ops
++  discipline, per the protocol's [Policy](cycle-protocol.md#policy)), and destructive ops
+   still pause.
+ - Validation ran, and passed, after the last edit.
+ - Closing words are already written. Nothing follows the turn's final push (next checklist).
+@@ -177,7 +178,7 @@
+ words *before* the invoke. The harness rejects an empty turn, so it may force a visible token
+ after the tool returns. If so, emit a bare acknowledgment only (e.g. "landed"), never a summary
+ or more work. Post-push verification happens next turn at the user's direction. A standing
+-delegation makes intermediate pushes just steps; the hard stop lands on the turn's *final*
++delegation makes intermediate pushes just steps. The hard stop lands on the turn's *final*
+ push. See
+ [After push or squash-push](cycle-protocol.md#after-push-or-squash-push-stop-and-wait).
+ 
+@@ -191,8 +192,8 @@
+    close-out, and a check that failed is a finding, not a reason to quietly restate the banner.
+ 2. **Finalize the six items in place**: sync the title if the scope shifted, replace the
+    provisional solution statement with what was done, drop the ladder's `(current)` / `(done)`
+-   markers, add any design subsections, and write the closing rung's gotchas subsection
+-   (problem/solution form) if closing surfaced any.
++   markers, add any design subsections, and complete the closing rung's subsection: gotchas in
++   problem/solution form, `_None._` when closing surfaced none.
+ 3. **Move the block** into `notes/chores/chores-NN.md`, which is what creates the section.
+    Four transforms, two of which fail silently: headings one level deeper, rung refs renumbered
+    into the destination's namespace, repo-root-relative links gain `../`, forward-looking notes
+diff -ru agent-data/cycle-protocol.md /home/wink/data/prgs/rust/iiac-perf/agent-data/cycle-protocol.md
+--- agent-data/cycle-protocol.md	2026-08-14 15:18:09.145199211 -0700
++++ /home/wink/data/prgs/rust/iiac-perf/agent-data/cycle-protocol.md	2026-08-14 11:23:41.749336887 -0700
+@@ -149,8 +149,8 @@
+   as steps land, and all six move to chores at close-out.
+   The title is a heading one level below `## In Progress`'s
+   own, and the other five are headings one level below the
+-  title (a plain cycle: `###` title, `####` items; under a
+-  program heading, each one deeper):
++  title (a plain cycle: `###` title, `####` items, and under
++  a program heading, each one deeper):
+   - the **title**, which becomes the chores section header.
+   - the **problem statement**: what is wrong, in a sentence
+     or two.
+@@ -183,7 +183,7 @@
+ 
+ The verbiage lives in the rung's subsection under a **`Ladder details`** heading following the
+ deliberation, headed by the rung's exact title, so it is greppable and an anchor other records
+-can link. Every rung but the close-out has one, written in two beats:
++can link. Every rung has one, the close-out included, written in two beats:
+ 
+ - **Opened at laddering** with an abstract-sized intent statement: the rung's problem and
+   solution in a sentence or two, provisional like the rest of the block, so a rung nobody has
+@@ -192,16 +192,13 @@
+   deferrals). It never restates the landed commit body's problem/solution: the body is the
+   record, and the subsection keeps only what the body does not say.
+ 
+-The closing rung is the two-beat convention's one exception. Its title is the cycle title plus
+-" closing" (the bookend form: [Cycle bookend titles](prose.md#cycle-bookend-titles)), it opens
+-no intent stub, since its problem and solution are the block's own Problem and Solution items,
+-and its subsection is created at close-out only when gotchas occurred: what closing taught
+-(acceptance surprises, validation trip-ups, close-out-move wrinkles), written in
+-problem/solution form. Its ladder link arrives with the subsection. The cycle narrative still
+-becomes the chores section intro; no gotchas, no subsection. The area moves to chores with the
+-block, rung-titled headings intact. Depth note: under a program heading the subsections sit at
+-markdown's heading floor while the block is in `TODO.md`; the close-out move shifts the block
+-shallower, so the chores copy has room.
++The closing rung differs only in its content. Its title is the cycle title plus
++" closing" (the bookend form: [Cycle bookend titles](prose.md#cycle-bookend-titles)), it is
++linked like its siblings, and its subsection opens at laddering with the one-line stub
++"Closing out the cycle.", since its problem and solution are the block's own Problem and
++Solution items. At close-out the subsection completes with what closing taught (acceptance
++surprises, validation trip-ups, close-out-move wrinkles), written in problem/solution form, or
++`_None._` when closing taught nothing.
+ 
+ Nothing is opened in the chores file at Preparation. The
+ section is created at close-out by moving this block. See
+@@ -302,7 +299,7 @@
+ 
+ A topic bookmark is a draft until it lands on a permanent
+ branch. Pushing to the bookmark makes the work durable and
+-visible; it does not publish it. Landing on the permanent
++visible, but it does not publish it. Landing on the permanent
+ branch is publication, and that is the line the rules divide
+ at:
+ 
+@@ -320,18 +317,20 @@
+ 
+ Mechanics, and why they cost so little here:
+ 
+-- **Amend content; never re-describe.** Editing `TODO.md`
++- **Amend content, never re-describe.** Editing `TODO.md`
+   inside a rung and amending it is not a `jj describe`, so
+   the never-re-describe rule stays intact. `ochid:` trailers
+   survive, since they carry change ids rather than commit
+   ids and a change id is stable across a rewrite.
+ - **Force-push the bookmark** afterwards, under the same
+   approval any push needs.
+-- **Exceptions**, since "when practical" is not "always":
+-  the bookmark has already landed; another branch is stacked
+-  on it, so the rewrite becomes someone else's rebase; or
+-  the ladder is long and only a trailing snapshot disagrees.
+-  Name the reason and move on.
++- **Exceptions**, since "when practical" is not "always".
++  Name the reason and move on:
++  - the bookmark has already landed
++  - another branch is stacked on it, so the rewrite becomes
++    someone else's rebase
++  - the ladder is long and only a trailing snapshot
++    disagrees
+ 
+ A squash-form [sub-cycle ladder](#sub-cycle-ladders) never
+ meets this, because nothing on it is pushed and the
+@@ -357,9 +356,11 @@
+    [versioning.md](versioning.md#suffix-scheme)). The
+    Preparation's own bump already covers a Preparation
+    commit.
+-5. **Validate the artifact**, a medium-specific step, skip-able
+-   for notes-only commits, mandatory at close-out. For the Rust
+-   example the cargo cycle is:
++5. **Validate the artifact**, a medium-specific step. If the
++   medium has a runnable artifact, run it at every commit,
++   doc-only ones included: step 4 changed the version, and
++   running it is how that is verified. For the Rust example
++   the cargo cycle is:
+    1. `cargo fmt`
+    2. `cargo clippy --all-targets -- -D warnings`
+    3. `cargo test`
+@@ -472,7 +473,7 @@
+ 
+ Work review looks at the **uncommitted working-copy diff**,
+ on the way to commit. The user opens diffs in their
+-editor (Zed, VSCode); jj commands are for terminal:
++editor (Zed, VSCode), and jj commands are for terminal:
+ 
+ - `jj diff`: working-copy diff (uncommitted)
+ - `jj diff -r @-`: diff of the previous commit
+@@ -507,8 +508,8 @@
+ Approval of a plan that *includes* a push does not authorize
+ the push itself. Stop and ask again at the moment of pushing.
+ 
+-**Default is interactive; an explicit scoped delegation waives
+-the gates.** The gates above (per-push approval, the
++**Default is interactive, and only an explicit scoped
++delegation waives the gates.** The gates above (per-push approval, the
+ commit-description review that shows title+body and stops, and
+ the hard stop after push/squash-push) are the *interactive
+ default*.
+@@ -548,16 +549,16 @@
+ reviewed in real time. The tiers:
+ 
+ - **Interactive** (the default): every stop, as above.
+-- **Delegated cycle**: rungs push to the topic bookmark without per-push asks; `main` is
++- **Delegated cycle**: rungs push to the topic bookmark without per-push asks, and `main` is
+   untouched by construction, so review happens at landing: read the line, then land it.
+-- **Delegated project**: landing is delegated too; review happens after, and corrections
++- **Delegated project**: landing is delegated too, review happens after, and corrections
+   become new cycles.
+ 
+ Destructive ops pause in every tier, and landing is its own tier, delegated separately.
+ 
+ ### Shape at close-out push
+ 
+-At close-out the cycle's *work* is done; its *published
++At close-out the cycle's *work* is done, and its *published
+ shape* is the remaining choice, made at push time. Surface
+ the options and get user approval before pushing. Once on
+ the target, changing shape is a remote rewrite (force-push,
+@@ -579,8 +580,8 @@
+   informative. Each chores section keeps its own header /
+   ladder refs, no consolidation churn.
+ 
+-A squash is set up before invoking `vc-x1 push`; a trapezoid
+-is reshaped between two pushes (the recipe below). For any
++A squash is set up before invoking `vc-x1 push`, while a
++trapezoid is reshaped between two pushes (the recipe below). For any
+ other shape, drive `jj git push` directly.
+ 
+ ### Trapezoid close-out recipe
+@@ -603,9 +604,9 @@
+   second parent.
+ - `<closeout>`: the close-out commit, created by step 1.
+ 
+-The steps. Only step 1 is a `vc-x1 push`; the rest is jj,
+-because after step 1 the commits already exist and all that
+-remains is reshaping and publishing them:
++The steps. Only step 1 is a `vc-x1 push`, and the rest is
++jj, because after step 1 the commits already exist and all
++that remains is reshaping and publishing them:
+ 
+ 1. `vc-x1 push <bookmark> --title "..." --body "..."`
+    - the ordinary close-out push. It commits both repos, stamps the
+@@ -654,7 +655,7 @@
+   content, which looks alarming and isn't. `jj new` puts `@`
+   back on top of the merge so the tree is right and the next
+   commit continues from there. Skipping it doesn't break the
+-  publish; it leaves you working from the wrong parent.
++  publish, it just leaves you working from the wrong parent.
+ - **Trailers survive.** The reshape changes `<closeout>`'s
+   SHA but not its change ID, so the `ochid:` trailers stamped
+   in step 1 stay valid in both directions. This is why the
+@@ -756,12 +757,12 @@
+ - **Scope**: the stop follows the user's directive, not the
+   push. A standing directive covering more work ("finish
+   the remaining ladder commits on your own") makes an
+-  intermediate push just a step; the hard stop lands on the
+-  turn's *final* push.
++  intermediate push just a step, and the hard stop lands on
++  the turn's *final* push.
+ - **Why**: the bot repo is a live journal, so everything after
+   the invocation (its own record, closing words) lands in
+   `@` as a trailing tail. Between delegated pushes the tail
+-  rides into the next cycle's bot commit; the final push's
++  rides into the next cycle's bot commit. The final push's
+   tail has no next commit, and the bot's own squash-push is
+   itself session data (`@` refills immediately), so only the
+   user, after the turn, can capture it
+diff -ru agent-data/jj.md /home/wink/data/prgs/rust/iiac-perf/agent-data/jj.md
+--- agent-data/jj.md	2026-08-14 15:18:09.145199211 -0700
++++ /home/wink/data/prgs/rust/iiac-perf/agent-data/jj.md	2026-08-14 10:03:53.423360137 -0700
+@@ -40,11 +40,11 @@
+ terminal transcripts is `jj-tips.md`, hosted once in the template repository.
+ 
+ - A revision is `@` (the working copy), a chid prefix, or a commit id. Unambiguous prefixes
+-  are accepted; ambiguous ones are rejected, never guessed.
++  are accepted, and ambiguous ones are rejected, never guessed.
+ - Neighbors: `@-` parent, `@--` grandparent, `@+` child. A step past the end of the chain is
+   the empty set, not an error.
+ - `::` is the primary range operator, symmetric and endpoint-inclusive:
+-  - `::x` ancestors of x, including x; `x::` descendants of x, including x
++  - `::x` ancestors of x, including x. `x::` descendants of x, including x
+   - `x::y` the DAG path: descendants of x that are also ancestors of y
+ - `..` is git-compatible set subtraction, not a tighter `::`:
+   - `x..y` is `::y ~ ::x`: ancestors of y that are not ancestors of x
+@@ -116,7 +116,7 @@
+ 
+ The mechanics behind
+ [Cycles run on a bookmark](cycle-checklists.md#cycles-run-on-a-bookmark). That section holds
+-the rule and when it applies; this one holds the commands.
++the rule and when it applies, and this one holds the commands.
+ 
+ **Create**, at the cycle's opening, with the bookmark named by the cycle title's slug (the
+ anchor algorithm in [Markdown anchor links](notes.md#markdown-anchor-links), so the chores
+diff -ru agent-data/notes.md /home/wink/data/prgs/rust/iiac-perf/agent-data/notes.md
+--- agent-data/notes.md	2026-08-14 15:18:09.145199211 -0700
++++ /home/wink/data/prgs/rust/iiac-perf/agent-data/notes.md	2026-08-14 11:04:58.476667759 -0700
+@@ -61,14 +61,14 @@
+ exact shape.
+ 
+ A file's `# References` can be **re-packed** to a contiguous `[1]..[N]` in
+-first-citation-appearance order: walk the file's prose in document order (`TODO.md`: `## Todo`
+-then `## Done`; `chores-NN.md`: top to bottom) and number refs as their first `[[N]]` citation
++first-citation-appearance order: walk the file's prose in document order (`TODO.md` is `## Todo`
++then `## Done`, `chores-NN.md` top to bottom) and number refs as their first `[[N]]` citation
+ appears. This is a file-local rewrite, so only that file's `[[N]]` citations and `[N]:`
+ definitions move. Every target and sibling file is untouched. A `[[N]]` inside a `` ` `` code
+ span is a literal token, not a citation, and is left alone. Do it opportunistically (when the
+-namespace has drifted enough to annoy), not on a schedule: `TODO.md` fragments fastest (entries
+-land and get pruned every cycle) and is the usual candidate; `chores-NN.md` / `done.md` are
+-append-mostly and only need it after an unusual event (e.g. a bulk retrofit that allocated
++namespace has drifted enough to annoy), not on a schedule. `TODO.md` fragments fastest (entries
++land and get pruned every cycle) and is the usual candidate, while `chores-NN.md` / `done.md`
++are append-mostly and only need it after an unusual event (e.g. a bulk retrofit that allocated
+ slots out of document order).
+ 
+ ## Markdown anchor links
+@@ -82,14 +82,14 @@
+ 
+ ## Todo format
+ 
+-`TODO.md` is organized into `## In Progress`, `## Todo` (strict priority rank, #1 highest;
+-long-tail backlog in [todo-backlog.md](../notes/todo-backlog.md)), `## Ideas`, `## Bugs`
++`TODO.md` is organized into `## In Progress`, `## Todo` (strict priority rank, #1 highest, with
++the long-tail backlog in [todo-backlog.md](../notes/todo-backlog.md)), `## Ideas`, `## Bugs`
+ (pointer to [bugs.md](../notes/bugs.md)), and `## Done` sections. Each item is a short
+ description with reference links to more detail.
+ 
+ `## Todo` and `## Bugs` entries carry explicit `1.` `2.` ... numbers in the source. For
+-`## Todo` the number is its **priority rank** (#1 highest, descending); for `## Bugs` it's just
+-an index. They're for grepping and at-a-glance "let's do #1", **not stable IDs**: reorder (to
++`## Todo` the number is its **priority rank** (#1 highest, descending), and for `## Bugs` it's
++just an index. They're for grepping and at-a-glance "let's do #1", **not stable IDs**: reorder (to
+ reprioritize), insert, or delete freely, then `vc-x1 fix-todo --no-dry-run` renumbers and
+ normalizes continuation-line indent, so any given number is positional. **To refer to a Todo
+ durably, name it by its title, a plain, greppable text mention.** Not its number (positional,
+@@ -206,7 +206,7 @@
+ Any pre-existing sections and `## Done` entries that predate this convention keep their
+ free-form text. The convention applies going forward.
+ 
+-### Chores section content: no edit list; git is the record
++### Chores section content: no edit list, git is the record
+ 
+ A chores section is: the as-built ladder (first content under the header, below), then
+ [Prose form](prose.md#prose-form) (intro + bullets) for what landed and why, and any `###`
+@@ -215,7 +215,7 @@
+ **conceptual** (design points, structural notes), never a per-file edit list. Nothing in prose keeps one: the **diff** is the source of truth for what
+ changed mechanically (`git show --stat`, immutable, naturally scoped to the commit), the **commit
+ body** states the problem and the solution in broad terms, and the **chores section** is the
+-source of truth for the design thinking. Each of the three cross-links to the others; none
++source of truth for the design thinking. Each of the three cross-links to the others, and none
+ restates another.
+ 
+ The section is **not built up here**: it is created at close-out by moving the cycle's
+@@ -236,8 +236,12 @@
+ direction).
+ 
+ **Why:** a chores edit list and the commit body were specified to be the same content in two
+-places, and detail written twice drifts. Git owns the mechanical record; the body owns the problem
+-and the solution; chores owns the narrative; the ladder's commit refs link them.
++places, and detail written twice drifts. The division:
++
++- git owns the mechanical record
++- the body owns the problem and the solution
++- chores owns the narrative
++- the ladder's commit refs link them
+ 
+ ### Chores commit references
+ 
+@@ -257,13 +261,11 @@
+ 
+ - The rung form is `- [[N]] [<title>][M]` while the commit is unlanded, becoming
+   `- [[2]] X.Y.Z[-n] [<title>][M]` at backfill, as the first rung above shows. `[M]` is the
+-  rung's subsection link, a file-local slot defined as a same-file fragment
+-  (`[M]: #<slug>`): it rides in from the working ladder and stays valid, since the
+-  subsections move into the same file, renumbered like any other slot (the closing rung is
+-  unlinked unless close-out gotchas gave it a subsection). No step number and no
+-  `(current)` / `(done)` marker,
+-  since as-built implies done (the in-flight markers live in `TODO.md > ## In Progress`).
+-  Landing order is the list order. See
++  rung's subsection link, a file-local slot defined as a same-file fragment (`[M]: #<slug>`): it
++  rides in from the working ladder and stays valid, since the subsections move into the same
++  file, renumbered like any other slot, the closing rung's among them. No step number and no
++  `(current)` / `(done)` marker, since as-built implies done (the in-flight markers live in
++  `TODO.md > ## In Progress`). Landing order is the list order. See
+   [Steps are named, not numbered](prose.md#steps-are-named-not-numbered).
+ - **The version arrives with the SHA, not before it.** It is the one version written into prose
+   (see
+@@ -280,7 +282,7 @@
+   file-local slot once its commit's SHA is permanent (see Timing below).
+ - Rung citations use the file-local `[N]` reference machinery (see
+   [Reference numbering](#reference-numbering)), **double-bracketed** so the brackets render.
+-  (`[[3]]` shows as a literal `[`, the `[3]` link, then a literal `]`; the inner `[3]`
++  (`[[3]]` shows as a literal `[`, the `[3]` link, then a literal `]`. The inner `[3]`
+   resolves against its `[3]:` definition, and CommonMark / GitHub / VS Code all do this.) The
+   `# References` definition puts the **commit URL** as the destination, with the **full
+   40-hex SHA** in the title slot:
+diff -ru agent-data/prose.md /home/wink/data/prgs/rust/iiac-perf/agent-data/prose.md
+--- agent-data/prose.md	2026-08-14 15:18:09.145199211 -0700
++++ /home/wink/data/prgs/rust/iiac-perf/agent-data/prose.md	2026-08-14 11:25:29.425587527 -0700
+@@ -64,7 +64,7 @@
+   `max_width` (enforcement notes in [code.md](code.md#line-width)).
+ - **Commit titles**: <=50 chars.
+ - **Commit bodies**: <=75 cols, the Linux kernel patch standard. It replaced git's older 72
+-  convention here 2026-08-09; published bodies keep the wrap they shipped with.
++  convention here 2026-08-09, and published bodies keep the wrap they shipped with.
+ 
+ The widths are wrap defaults, not absolutes (the title cap excepted). Existing text re-wraps
+ when touched, no mass sweeps. Write to the full width: wrap near the limit rather than
+@@ -119,7 +119,7 @@
+ Indentation alone cannot separate them in the trivial case, where a lone top-level `-` reads as a
+ solution only because `-` always is one. The typing also keeps history greppable (`^\* ` finds
+ every facet, `^- ` and `^  - ` every solution). Bodies are read as plain text, in `jj log` and in
+-terminals, where the markers survive; if a renderer ever flattens them the indentation still
++terminals, where the markers survive, and if a renderer ever flattens them the indentation still
+ carries the structure. So the mixed markers are deliberate, and a linter's consistent-marker rule
+ is wrong to normalize them.
+ 
+@@ -128,21 +128,25 @@
+ 
+ ### Semicolons
+ 
+-A semicolon earns its place only between equals: two parallel claims of the same weight, where
+-the contrast is the point ("The diff empties; the history keeps the record"). Everything else
+-that reaches for one is a structure decision not yet made. Make the decision:
+-
+-- **Item plus detail** (`claim; elaboration`): a detail worth keeping gets its own sentence, or
+-  its own sub-bullet where a reader skimming the list will actually notice it. A mere
+-  continuation of the thought takes a comma with a conjunction.
+-- **A list hiding in prose** (`A; B; C` inside a bullet): break the clauses into sub-bullets so
+-  the structure shows.
+-- **Legitimate besides the antithesis**: a semicolon separating list items that themselves
+-  contain commas; and semicolons inside code spans, which are syntax, not prose.
+-
+-Running prose is held to the same test, just less strictly: a sentence-join in an intro
+-paragraph is fine when both halves would stand as sentences and neither is a detail of the
+-other.
++Prose carries no semicolons. A semicolon appears only in code (code spans, fenced code, source
++files), where it is syntax rather than prose. The structure a semicolon would have joined is
++written explicitly instead:
++
++- **Two claims** take a period, each half standing as its own sentence ("The diff empties. The
++  history keeps the record.").
++- **A continuation** takes a comma with a conjunction, when one half carries the other's thought
++  onward rather than making its own claim.
++- **A list hiding in prose** (`A; B; C` inside a sentence or bullet) breaks into sub-bullets so
++  the structure shows. List items that themselves contain commas restructure the same way rather
++  than separating with semicolons.
++
++The code allowance is why a bare byte scan cannot enforce the rule: a checker blanks the code
++first, then expects zero.
++
++The agent-files (`AGENTS.md`, `custom*`, `agent-data/*`) carry no historical exemption and are
++swept to zero. Any other historical file keeps its existing semicolons only until it is altered:
++altering one is the moment to ask the user whether its semicolons should be removed, always,
++never a license to convert or keep them silently.
+ 
+ ### Typeable punctuation only
+ 
+@@ -151,8 +155,9 @@
+ below), so a byte scan is not the rule and a sweep needs the authored/transcribed judgment.
+ Banned from authoring: `—`, `–`, `…`, `→`. None can be entered without a compose key or a
+ paste, so none can be grepped for, and an em dash next to option syntax reads as another flag.
+-Unlike the semicolon rule above this one is absolute: they cost nothing to write and are paid on
+-every read, so a soft rule accumulates them.
++Like the semicolon rule above this one is absolute, and stricter with history: no ask-on-alter,
++no exemption at all, because a banned character costs nothing to write and is paid on every
++read, so a soft rule accumulates them.
+ 
+ `…` becomes `...` and `→` becomes `->`. The dashes have no single replacement, because an em
+ dash usually stands in for a structural decision that was not made. Make the decision:
+@@ -172,7 +177,7 @@
+ Scope is the same as [Speculation marker](#speculation-marker), plus commit titles and
+ everything under `src/`: doc comments, inline comments, and any user-visible string. Source is
+ the surface a human edits and greps most, so an untypeable character costs more there than in
+-prose. It applies going forward; existing text converts when touched. A code span is not exempt
++prose. It applies going forward, and existing text converts when touched. A code span is not exempt
+ by itself. Naming the character is a specimen and stays, which is how this section names them.
+ A banned character doing a job is a use and converts: `` `.expect(…)` `` becomes
+ `` `.expect(...)` ``.
+@@ -207,9 +212,8 @@
+ - **Ladder step** (`TODO.md` `## In Progress`): the rung is
+   `- [[N]] [<title>][M] (marker)`: the as-built `[[N]]` placeholder carried from birth, the
+   title reference-linked to the rung's subsection via `[M]: #<slug>` in the file's
+-  `# References` (the closing rung unlinked until its gotchas subsection exists), and the
+-  `(current)` / `(done)` marker. Its
+-  position in the list is its position in the ladder. The last rung is the close-out and its
++  `# References` (the closing rung linked like the rest), and the `(current)` / `(done)` marker.
++  Its position in the list is its position in the ladder. The last rung is the close-out and its
+   text says so. Detail lives not on the rung but in the block's `Ladder details` subsection
+   headed by the rung's exact title (see the protocol's
+   [Preparation](cycle-protocol.md#preparation)), bulleted, never `;`-joined inline.
+@@ -286,7 +290,7 @@
+   written anywhere in the Done list that question has no answer.
+ 
+ The two differ in timing, and the reason is the SHA rather than the version. The rung waits
+-because a commit cannot record its own SHA; a Done entry has no SHA to wait for and its version
++because a commit cannot record its own SHA. A Done entry has no SHA to wait for and its version
+ is already in the manifest of the commit it is written in, so it is written at close-out. On an
+ unlanded bookmark it is a draft like the rest of the line
+ ([Topic bookmarks are drafts](cycle-protocol.md#topic-bookmarks-are-drafts)), and a renumber of
+@@ -310,7 +314,7 @@
+ different date or never). And the citation goes stale the moment the named project retires its
+ records, while the rule outlives it.
+ 
+-**How to apply:** state the rule and its mechanism in the pinned file; leave the evidence trail
++**How to apply:** state the rule and its mechanism in the pinned file, and leave the evidence trail
+ in the records of the project that earned it (chores, dogfood log), reachable from the commit
+ that changed the pinned file. Dates are fine, since a date names a moment, not a member. A
+ specimen in
+@@ -342,7 +346,7 @@
+ hardware behavior), end it with a short plain-language synopsis, no jargon and no symbols, so
+ the reader can check their understanding against the technical version.
+ 
+-**Why:** the technical form is precise but easy to misread; the plain form catches
++**Why:** the technical form is precise but easy to misread, and the plain form catches
+ misunderstandings early, when they are cheap.
+ 
+ **How to apply:** conversation only, not notes files (a notes entry should already lead with
+diff -ru agent-data/versioning.md /home/wink/data/prgs/rust/iiac-perf/agent-data/versioning.md
+--- agent-data/versioning.md	2026-08-07 23:01:20.688458346 -0700
++++ /home/wink/data/prgs/rust/iiac-perf/agent-data/versioning.md	2026-08-14 10:04:12.810410262 -0700
+@@ -67,8 +67,8 @@
+   the suffix, never a `+` in this spelling. This is the portability invariant that makes the
+   version storable in every medium below.
+ - **`v` is a display prefix, not part of the version**: conversation and reports may write
+-  `v0.78.0-3.1` for scannability; manifests store the bare form. (PEP 440 ignores a leading `v`;
+-  Cargo rejects one.)
++  `v0.78.0-3.1` for scannability, while manifests store the bare form. (PEP 440 ignores a
++  leading `v`. Cargo rejects one.)
+ 
+ Storage is a per-medium remap of that one spelling:
+ 
+@@ -82,8 +82,8 @@
+ 
+ Two reservations keep the remap sound:
+ 
+-- **The stored version identifies; it does not order.** SemVer sorts a suffixed version *before*
+-  its bare release (matching cycle semantics: rungs precede close-out); PEP 440 sorts the
++- **The stored version identifies but does not order.** SemVer sorts a suffixed version *before*
++  its bare release (matching cycle semantics: rungs precede close-out), while PEP 440 sorts the
+   remapped form *after* it, and reinterprets a lone `-N` as a post-release. Opposite directions,
+   so no cross-medium logic may compare stored versions. Ordering truth lives in the ladder and
+   git history. Comparing the public triple alone (e.g. a version gate) is unaffected.
+@@ -94,7 +94,7 @@
+ **Why one dash, dots only:** a Python linter/formatter in a sibling repo rejected every
+ multi-dash version outright, and the PEP 440 reference parser (`packaging` 26.2, tested
+ 2026-07-30) confirms the boundary: `1.2.3-3.1`, `1.2.3-x+ab+cd`, `1.2.3-34-abc`, and any second
+-`+` are all invalid; `1.2.3+3.1` / `1.2.3+3.1.hotfix` parse at any depth; `1.2.3-1` parses but
++`+` are all invalid. `1.2.3+3.1` / `1.2.3+3.1.hotfix` parse at any depth. `1.2.3-1` parses but
+ silently becomes the post-release `1.2.3.post1`. The one-dash dotted grammar is the largest form
+ every medium accepts.
+ 
