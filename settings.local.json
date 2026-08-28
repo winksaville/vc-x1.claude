@@ -64,7 +64,8 @@
       "Read(//home/wink/data/prgs/rust/vc-x1-template/work/agent-data/**)",
       "Bash(echo \"rc\\(payload-vs-us\\)=$?\")",
       "Read(//home/wink/data/prgs/rust/vc-x1-template/work/**)",
-      "Bash(echo \"rc\\(payload-vs-iiac\\)=$?\")"
+      "Bash(echo \"rc\\(payload-vs-iiac\\)=$?\")",
+      "Bash(VC_X1_TEST_TMPDIR=./tmp VC_X1_TEST_KEEP=1 cargo test --bins dual_fixture_writes_work_and_bot_config_files -- --nocapture)"
     ]
   }
 }
